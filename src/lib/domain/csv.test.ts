@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   classifySet,
+  csvSafeCell,
   mapHeaders,
   parseCsvText,
   parseStrongCsv,
@@ -71,5 +72,22 @@ describe("csv parser", () => {
     const result = parseStrongCsv("   ");
     expect(result.rows).toHaveLength(0);
     expect(result.issues[0]?.message).toMatch(/empty/i);
+  });
+
+  it("skips Strong rest-timer rows", () => {
+    const result = parseStrongCsv(
+      SAMPLE + `\n2024-03-02 18:00:00,Upper A,61m,Barbell Bench Press,Rest Timer,0,kg,0,,`,
+    );
+    expect(result.rows).toHaveLength(3);
+    expect(result.issues.some((i) => i.message.includes("rest-timer"))).toBe(true);
+  });
+
+  it("neutralizes formula-like cells", () => {
+    expect(csvSafeCell("Back Squat")).toBe("Back Squat");
+    expect(csvSafeCell("=1+1")).toBe("'=1+1");
+    expect(csvSafeCell("+cmd")).toBe("'+cmd");
+    expect(csvSafeCell("@SUM(A1)")).toBe("'@SUM(A1)");
+    expect(csvSafeCell("hello, world")).toBe('"hello, world"');
+    expect(csvSafeCell('=HYPERLINK("x")')).toBe(`"'=HYPERLINK(""x"")"`);
   });
 });

@@ -15,9 +15,9 @@ describe("estimate1RM", () => {
     expect(estimate1RM(100, 5, "brzycki")).toBeCloseTo((100 * 36) / 32);
   });
 
-  it("guards Brzycki against reps >= 37", () => {
-    expect(estimate1RM(60, 37, "brzycki")).toBeNull();
-    expect(estimate1RM(60, 40, "brzycki")).toBeNull();
+  it("falls Brzycki back to Epley when reps >= 37", () => {
+    expect(estimate1RM(60, 37, "brzycki")).toBeCloseTo(60 * (1 + 37 / 30));
+    expect(estimate1RM(60, 40, "brzycki")).toBeCloseTo(60 * (1 + 40 / 30));
   });
 
   it("rejects non-positive inputs", () => {

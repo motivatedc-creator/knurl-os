@@ -16,6 +16,14 @@ export type ImportReceipt = {
   importedAt: string;
 };
 
+export type RestTimerRow = {
+  id: "rest-timer";
+  startedAt: string;
+  endsAt: string;
+  durationSec: number;
+  label: string;
+};
+
 export class KnurlDB extends Dexie {
   exercises!: EntityTable<Exercise, "id">;
   templates!: EntityTable<Template, "id">;
@@ -27,6 +35,7 @@ export class KnurlDB extends Dexie {
   equipment!: EntityTable<EquipmentProfile, "id">;
   prefs!: EntityTable<Prefs, "id">;
   importReceipts!: EntityTable<ImportReceipt, "fingerprint">;
+  restTimers!: EntityTable<RestTimerRow, "id">;
 
   constructor() {
     super("knurl-os");
@@ -41,6 +50,9 @@ export class KnurlDB extends Dexie {
       equipment: "id",
       prefs: "id",
       importReceipts: "fingerprint, importedAt",
+    });
+    this.version(2).stores({
+      restTimers: "id",
     });
   }
 }

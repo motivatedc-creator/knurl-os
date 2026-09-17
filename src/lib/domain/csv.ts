@@ -21,22 +21,39 @@ const HEADER_MAP: Record<string, CsvColumn> = {
   date: "date",
   time: "date",
   datetime: "date",
+  starttime: "date",
+  workoutdate: "date",
+  datum: "date",
+  fecha: "date",
   workoutname: "workoutName",
   workout: "workoutName",
   session: "workoutName",
+  training: "workoutName",
+  entrenamiento: "workoutName",
   duration: "duration",
+  workoutduration: "duration",
+  dauer: "duration",
   exercisename: "exerciseName",
   exercise: "exerciseName",
+  ubung: "exerciseName",
+  ejercicio: "exerciseName",
   setorder: "setOrder",
   set: "setOrder",
   setnumber: "setOrder",
+  setindex: "setOrder",
   weight: "weight",
+  weightkg: "weight",
+  weightlbs: "weight",
   kg: "weight",
   lbs: "weight",
+  gewicht: "weight",
+  peso: "weight",
   weightunit: "weightUnit",
   unit: "weightUnit",
   reps: "reps",
   repetitions: "reps",
+  wiederholungen: "reps",
+  repeticiones: "reps",
   rpe: "rpe",
   distance: "distance",
   seconds: "seconds",
@@ -44,6 +61,7 @@ const HEADER_MAP: Record<string, CsvColumn> = {
   notes: "notes",
   setnotes: "notes",
   workoutnotes: "workoutNotes",
+  sessionnotes: "workoutNotes",
   settype: "setType",
   type: "setType",
 };
@@ -186,6 +204,11 @@ export function parseStrongCsv(text: string): CsvParseResult {
     const cells = table[r]!;
     const at = (idx: number) => (idx >= 0 ? (cells[idx] ?? "").trim() : "");
     const exerciseName = at(iEx) || null;
+    const orderRaw = at(iOrder);
+    if (/rest\s*timer/i.test(orderRaw) || /rest\s*timer/i.test(exerciseName ?? "")) {
+      issues.push({ line, message: "Skipped rest-timer row" });
+      continue;
+    }
     const dateRaw = at(iDate);
     const date = dateRaw ? dateRaw : null;
     if (date && !dateSchema.safeParse(date).success) {
@@ -240,4 +263,11 @@ export function classifySet(label: string | null): "warmup" | "working" | "drop"
   if (t.includes("drop")) return "drop";
   if (t.includes("fail")) return "failure";
   return "working";
+}
+
+/** Prefix formula-like cells so a spreadsheet cannot execute a note as a formula. */
+export function csvSafeCell(value: string): string {
+  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  if (/[",\n]/.test(safe)) return `"${safe.replace(/"/g, '""')}"`;
+  return safe;
 }

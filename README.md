@@ -10,10 +10,12 @@ There is no account and no cloud sync. If the network is down, the session is no
 src/
   routes/                 TanStack file routes (Command, Session, Logbook, …)
   components/             Shell, knurl mark, plate stack, shadcn-styled primitives
-  lib/domain/             Pure engines: 1RM, plates, warm-up, volume, CSV
+  lib/domain/             Pure engines: 1RM, plates, warm-up, volume, CSV, records
   lib/storage/            Dexie IndexedDB + repository interface (vault)
   lib/store/              Zustand: rest clock, drafts, prefs
   lib/brand/              Tokens and manifesto copy
+  lib/platform/           Rest chime and vibration (device-local, no telemetry)
+
 ```
 
 - **UI:** React 19, TanStack Start/Router, Tailwind v4, Zustand.
@@ -37,7 +39,7 @@ First launch seeds an 80-movement catalog, four templates (Lower A/B, Upper A/B)
 ## Tests
 
 ```bash
-npm run test:unit    # Vitest — 1RM, plates, warm-up, volume, CSV, streak
+npm run test:unit    # Vitest — 1RM, plates, warm-up, volume, CSV, streak, records
 npm run test:e2e     # Playwright critical path
 npm run typecheck
 npm run lint
@@ -45,17 +47,18 @@ npm run lint
 
 Unit engines live next to the code as `src/lib/domain/*.test.ts`.
 
-E2E (`e2e/critical-path.spec.ts`): create a routine → log a set with plate math → refresh → close the session → assert analytics tonnage.
+E2E (`e2e/critical-path.spec.ts`): create a routine → log a set with plate math → refresh → close the session → assert personal-record summary → assert analytics tonnage.
 
 ## Domain engines
 
 | Module | Contract |
 |---|---|
-| `one-rm.ts` | Epley `w*(1+r/30)`; Brzycki `w*36/(37-r)` with `r ≥ 37` rejected; warm-ups ignored. |
+| `one-rm.ts` | Epley `w*(1+r/30)`; Brzycki `w*36/(37-r)` with `r ≥ 37` falling back to Epley; warm-ups ignored. |
 | `plates.ts` | Greedy heavy-first, even counts only, heaviest inside. Inexact targets report closest lower load and delta. |
 | `warmup.ts` | Bar×8, 50%×5, 70%×3, 85%×2, 90%×1 (heavy ≥ 80 kg). Monotonic, de-duplicated, rounded to inventory. |
 | `volume.ts` | `weight × reps`; primary 1.0, secondary configurable (default 0.5). |
-| `csv.ts` | Strong-style header auto-map, quoted-comma parse, row faults, fingerprints for duplicates. |
+| `records.ts` | Heaviest, e1RM, set volume, and rep-bracket PRs. Warm-ups ignored. |
+| `csv.ts` | Strong-style header auto-map, quoted-comma parse, rest-timer skip, formula-safe cells, fingerprints. |
 
 ## Capacitor packaging
 
@@ -75,7 +78,7 @@ Native SQLite: implement `StrengthRepository` on Capacitor SQLite with the same 
 
 ## Vault format
 
-JSON export (`/vault`) is `{ schemaVersion, exportedAt, brand: "knurl-os", …tables }`. Current version is `1`. Restore is transactional and rejects a newer schema.
+JSON export (`/vault`) is `{ schemaVersion, exportedAt, brand: "knurl-os", …tables }`. Current version is `1`. Restore is transactional and rejects a newer schema. Merge keeps existing ids; replace overwrites the local vault.
 
 ## Brand
 

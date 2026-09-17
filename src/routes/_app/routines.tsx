@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/drawer";
 import { useTemplates } from "@/lib/hooks";
-import { startFromTemplate, vault } from "@/lib/storage/repo";
+import { duplicateTemplate, startFromTemplate, vault } from "@/lib/storage/repo";
 import { nowIso } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -59,17 +59,30 @@ function RoutinesPage() {
                   {t.exercises.length} movements
                 </p>
               </button>
-              <Button
-                size="sm"
-                variant="oxide"
-                data-testid={`launch-${t.name}`}
-                onClick={async () => {
-                  await startFromTemplate(t.id);
-                  navigate({ to: "/session" });
-                }}
-              >
-                Launch
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="steel"
+                  onClick={async () => {
+                    const next = await duplicateTemplate(t.id);
+                    toast("Routine copied.");
+                    navigate({ to: "/routines/$id", params: { id: next } });
+                  }}
+                >
+                  Copy
+                </Button>
+                <Button
+                  size="sm"
+                  variant="oxide"
+                  data-testid={`launch-${t.name}`}
+                  onClick={async () => {
+                    await startFromTemplate(t.id);
+                    navigate({ to: "/session" });
+                  }}
+                >
+                  Launch
+                </Button>
+              </div>
             </Panel>
           </li>
         ))}

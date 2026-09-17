@@ -1,5 +1,7 @@
 import { estimate1RMFromSets } from "@/lib/domain/one-rm";
 import { classifySet, parseStrongCsv, rowFingerprint, type CsvParseResult } from "@/lib/domain/csv";
+import { defaultPrefs } from "@/lib/domain/equipment";
+import type { RecordSet } from "@/lib/domain/records";
 import {
   VAULT_SCHEMA_VERSION,
   vaultDumpSchema,
@@ -54,7 +56,7 @@ export interface StrengthRepository {
   getPrefs(): Promise<Prefs>;
   savePrefs(prefs: Prefs): Promise<void>;
   exportVault(): Promise<VaultDump>;
-  restoreVault(dump: VaultDump): Promise<void>;
+  restoreVault(dump: VaultDump, mode?: "replace" | "merge"): Promise<void>;
 }
 
 function db(): KnurlDB {
@@ -243,7 +245,7 @@ export const vault: StrengthRepository = {
   async getPrefs() {
     const row = await db().prefs.get("singleton");
     if (!row) throw new Error("Prefs missing");
-    return row;
+    return { ...defaultPrefs(), ...row };
   },
   async savePrefs(prefs) {
     await db().prefs.put(prefs);
@@ -285,10 +287,14 @@ export const vault: StrengthRepository = {
       prefs,
     };
   },
-  async restoreVault(dump) {
+  async restoreVault(dump, mode = "replace") {
     const parsed = vaultDumpSchema.parse(dump);
     if (parsed.schemaVersion > VAULT_SCHEMA_VERSION) {
       throw new Error(`Vault schema ${parsed.schemaVersion} is newer than this build.`);
+    }
+    if (mode === "merge") {
+      await mergeVault(parsed);
+      return;
     }
     await db().transaction("rw", db().tables, async () => {
         await Promise.all([
@@ -308,10 +314,142 @@ export const vault: StrengthRepository = {
         await db().workoutSets.bulkAdd(parsed.workoutSets);
         await db().bodyMeasurements.bulkAdd(parsed.bodyMeasurements);
         await db().equipment.put(parsed.equipmentProfile);
-        await db().prefs.put(parsed.prefs);
+        await db().prefs.put({ ...defaultPrefs(), ...parsed.prefs });
     });
   },
 };
+
+async function mergeVault(parsed: VaultDump): Promise<void> {
+  await db().transaction("rw", db().tables, async () => {
+    const addMissing = async <T extends { id: string }>(
+      get: (id: string) => Promise<T | undefined>,
+      add: (row: T) => Promise<unknown>,
+      rows: T[],
+    ) => {
+      for (const row of rows) {
+        if (!(await get(row.id))) await add(row);
+      }
+    };
+    await addMissing((id) => db().exercises.get(id), (row) => db().exercises.add(row), parsed.exercises);
+    await addMissing((id) => db().templates.get(id), (row) => db().templates.add(row), parsed.templates);
+    await addMissing(
+      (id) => db().templateExercises.get(id),
+      (row) => db().templateExercises.add(row),
+      parsed.templateExercises,
+    );
+    await addMissing((id) => db().workouts.get(id), (row) => db().workouts.add(row), parsed.workouts);
+    await addMissing(
+      (id) => db().workoutExercises.get(id),
+      (row) => db().workoutExercises.add(row),
+      parsed.workoutExercises,
+    );
+    await addMissing((id) => db().workoutSets.get(id), (row) => db().workoutSets.add(row), parsed.workoutSets);
+    await addMissing(
+      (id) => db().bodyMeasurements.get(id),
+      (row) => db().bodyMeasurements.add(row),
+      parsed.bodyMeasurements,
+    );
+  });
+}
+
+export async function duplicateTemplate(id: string): Promise<string> {
+  const source = await vault.getTemplate(id);
+  if (!source) throw new Error("Routine not found");
+  const nextId = newId();
+  const stamp = nowIso();
+  await vault.saveTemplate(
+    {
+      id: nextId,
+      name: `${source.name} copy`,
+      notes: source.notes,
+      isArchived: false,
+      createdAt: stamp,
+      updatedAt: stamp,
+    },
+    source.exercises.map((line) => ({
+      ...line,
+      id: newId(),
+      templateId: nextId,
+    })),
+  );
+  return nextId;
+}
+
+export async function recentExerciseIds(limit = 24): Promise<string[]> {
+  const workouts = await db()
+    .workouts.where("status")
+    .equals("completed")
+    .reverse()
+    .sortBy("completedAt");
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const w of workouts) {
+    const rows = await db().workoutExercises.where("workoutId").equals(w.id).sortBy("order");
+    for (const row of rows) {
+      if (seen.has(row.exerciseId)) continue;
+      seen.add(row.exerciseId);
+      ids.push(row.exerciseId);
+      if (ids.length >= limit) return ids;
+    }
+  }
+  return ids;
+}
+
+export async function listHistoryForExercise(exerciseId: string) {
+  const rows = await db().workoutExercises.where("exerciseId").equals(exerciseId).toArray();
+  const out: { workout: Workout; exercise: WorkoutExercise; sets: WorkoutSet[] }[] = [];
+  for (const row of rows) {
+    const workout = await db().workouts.get(row.workoutId);
+    if (!workout || workout.status !== "completed") continue;
+    const sets = await db().workoutSets.where("workoutExerciseId").equals(row.id).sortBy("setIndex");
+    out.push({ workout, exercise: row, sets });
+  }
+  return out.sort((a, b) => (b.workout.completedAt ?? "").localeCompare(a.workout.completedAt ?? ""));
+}
+
+export async function collectRecordSets(excludeWorkoutId?: string): Promise<RecordSet[]> {
+  const exercises = await db().workoutExercises.toArray();
+  const workouts = await db().workouts.toArray();
+  const byWorkout = new Map(workouts.map((w) => [w.id, w]));
+  const out: RecordSet[] = [];
+  for (const ex of exercises) {
+    const workout = byWorkout.get(ex.workoutId);
+    if (!workout || workout.status !== "completed") continue;
+    if (excludeWorkoutId && workout.id === excludeWorkoutId) continue;
+    const sets = await db().workoutSets.where("workoutExerciseId").equals(ex.id).toArray();
+    for (const set of sets) {
+      out.push({
+        id: set.id,
+        exerciseId: ex.exerciseId,
+        weightKg: set.weightKg,
+        reps: set.reps,
+        classification: set.classification,
+        isCompleted: set.isCompleted,
+        performedAt: set.completedAt ?? workout.completedAt ?? workout.startedAt,
+      });
+    }
+  }
+  return out;
+}
+
+export async function exerciseHasHistory(exerciseId: string): Promise<boolean> {
+  const hit = await db().workoutExercises.where("exerciseId").equals(exerciseId).first();
+  return Boolean(hit);
+}
+
+export async function getRestTimer() {
+  return db().restTimers.get("rest-timer");
+}
+
+export async function setRestTimer(
+  row: { startedAt: string; endsAt: string; durationSec: number; label: string } | null,
+): Promise<void> {
+  if (!row) {
+    await db().restTimers.delete("rest-timer");
+    return;
+  }
+  await db().restTimers.put({ id: "rest-timer", ...row });
+}
 
 export async function startBlankWorkout(name = "Open session"): Promise<HydratedWorkout> {
   const existing = await vault.getActiveWorkout();

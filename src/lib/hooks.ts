@@ -1,7 +1,7 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useEffect, useState } from "react";
 import { useVaultReady } from "./storage/ready";
-import { vault } from "./storage/repo";
+import { vault, recentExerciseIds } from "./storage/repo";
 
 export function useTick(enabled: boolean, ms = 250): number {
   const [now, setNow] = useState(() => Date.now());
@@ -50,4 +50,8 @@ export function useEquipment() {
 
 export function usePrefsRow() {
   return useVaultQuery(() => vault.getPrefs());
+}
+
+export function useRecentExerciseIds() {
+  return useVaultQuery(() => recentExerciseIds()) ?? [];
 }

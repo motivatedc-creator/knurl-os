@@ -49,6 +49,8 @@ test("create template, log with plates, survive refresh, complete, analytics upd
 
   await page.getByTestId("finish-session").click();
   await page.getByTestId("confirm-finish").click();
+  await expect(page.getByTestId("session-summary")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("pr-banner")).toBeVisible();
 
   await page.goto("/analytics");
   await waitForVault(page);

@@ -7,6 +7,7 @@ import { useActiveWorkout } from "@/lib/hooks";
 import { isVaultAvailable } from "@/lib/storage/db";
 import { vault } from "@/lib/storage/repo";
 import { openVault } from "@/lib/storage/seed";
+import { RestClock } from "@/components/rest-clock";
 import { cn } from "@/lib/utils";
 import { Toaster } from "sonner";
 import { brand } from "@/lib/brand/tokens";
@@ -134,6 +135,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           },
         }}
       />
+      <RestClock />
     </div>
   );
 }

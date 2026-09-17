@@ -232,6 +232,8 @@ export const prefsSchema = z.object({
   secondaryVolumeFactor: z.number().min(0).max(1),
   appIcon: z.enum(appIcons),
   restBeep: z.boolean(),
+  restVibrate: z.boolean().default(false),
+  onboardingDone: z.boolean().default(false),
   updatedAt: iso,
 });
 export type Prefs = z.infer<typeof prefsSchema>;
@@ -327,3 +329,13 @@ export const VOLUME_BUCKET: Record<MuscleGroup, string> = {
   obliques: "Core",
   neck: "Neck",
 };
+
+export const SET_CLASS_META: Record<SetClassification, { short: string; label: string }> = {
+  working: { short: "", label: "Working" },
+  warmup: { short: "W", label: "Warm-up" },
+  drop: { short: "D", label: "Drop" },
+  failure: { short: "F", label: "Failure" },
+};
+
+export const SET_CLASS_CYCLE: SetClassification[] = ["working", "warmup", "drop", "failure"];
+

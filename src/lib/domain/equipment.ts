@@ -50,6 +50,8 @@ export function defaultPrefs(): Prefs {
     secondaryVolumeFactor: 0.5,
     appIcon: "mark",
     restBeep: false,
+    restVibrate: false,
+    onboardingDone: false,
     updatedAt: nowIso(),
   };
 }

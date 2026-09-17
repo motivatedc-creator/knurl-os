@@ -22,7 +22,7 @@ export function estimate1RM(
   }
   if (reps === 1) return weightKg;
   if (formula === "epley") return weightKg * (1 + reps / 30);
-  if (reps >= 37) return null;
+  if (reps >= 37) return weightKg * (1 + reps / 30);
   return (weightKg * 36) / (37 - reps);
 }
 

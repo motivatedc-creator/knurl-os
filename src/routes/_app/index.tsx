@@ -26,6 +26,9 @@ function CommandCenter() {
   const templates = useTemplates();
   const workouts = useWorkouts();
   const units = usePrefs((s) => s.units);
+  const onboardingDone = usePrefs((s) => s.onboardingDone);
+  const restBeep = usePrefs((s) => s.restBeep);
+  const updatePrefs = usePrefs((s) => s.update);
   const mounted = useMounted();
   const stats = useVaultQuery(() => loadDashboardStats());
   const active = useActiveWorkout();
@@ -68,6 +71,45 @@ function CommandCenter() {
           </span>
           <Play className="size-5 text-oxide" />
         </button>
+      ) : null}
+
+      {!onboardingDone ? (
+        <Panel className="flex flex-col gap-3 p-4" data-testid="onboarding">
+          <p className="text-[11px] uppercase tracking-[0.32em] text-steel">First pour</p>
+          <h2 className="font-display text-3xl tracking-[0.08em]">THIS DEVICE IS THE VAULT</h2>
+          <p className="text-sm text-steel">
+            No account. Loads are stored as kilograms. Display units and rest cues stay on this
+            device and can be changed later in System.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {(["kg", "lb"] as const).map((u) => (
+              <button
+                key={u}
+                type="button"
+                onClick={() => updatePrefs({ units: u })}
+                className={cn(
+                  "h-10 rounded-md px-3 text-xs uppercase tracking-[0.14em]",
+                  units === u ? "bg-chalk text-mill" : "bg-elevated text-steel",
+                )}
+              >
+                {u}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => updatePrefs({ restBeep: !restBeep })}
+              className={cn(
+                "h-10 rounded-md px-3 text-xs uppercase tracking-[0.14em]",
+                restBeep ? "bg-chalk text-mill" : "bg-elevated text-steel",
+              )}
+            >
+              Rest chime {restBeep ? "on" : "off"}
+            </button>
+          </div>
+          <Button onClick={() => updatePrefs({ onboardingDone: true })} data-testid="onboarding-done">
+            Continue to floor
+          </Button>
+        </Panel>
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2">

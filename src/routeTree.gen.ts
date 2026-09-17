@@ -21,7 +21,9 @@ import { Route as AppLogbookRouteImport } from './routes/_app/logbook'
 import { Route as AppRoutinesRouteImport } from './routes/_app/routines'
 import { Route as AppSessionRouteImport } from './routes/_app/session'
 import { Route as AppSystemRouteImport } from './routes/_app/system'
+import { Route as AppToolsRouteImport } from './routes/_app/tools'
 import { Route as AppVaultRouteImport } from './routes/_app/vault'
+import { Route as AppExercisesIdRouteImport } from './routes/_app/exercises_.$id'
 import { Route as AppLogbookIdRouteImport } from './routes/_app/logbook_.$id'
 import { Route as AppRoutinesIdRouteImport } from './routes/_app/routines_.$id'
 
@@ -84,9 +86,19 @@ const AppSystemRoute = AppSystemRouteImport.update({
   path: '/system',
   getParentRoute: () => AppRoute,
 } as any)
+const AppToolsRoute = AppToolsRouteImport.update({
+  id: '/tools',
+  path: '/tools',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppVaultRoute = AppVaultRouteImport.update({
   id: '/vault',
   path: '/vault',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppExercisesIdRoute = AppExercisesIdRouteImport.update({
+  id: '/exercises_/$id',
+  path: '/exercises/$id',
   getParentRoute: () => AppRoute,
 } as any)
 const AppLogbookIdRoute = AppLogbookIdRouteImport.update({
@@ -112,7 +124,9 @@ export interface FileRoutesByFullPath {
   '/routines': typeof AppRoutinesRoute
   '/session': typeof AppSessionRoute
   '/system': typeof AppSystemRoute
+  '/tools': typeof AppToolsRoute
   '/vault': typeof AppVaultRoute
+  '/exercises/$id': typeof AppExercisesIdRoute
   '/logbook/$id': typeof AppLogbookIdRoute
   '/routines/$id': typeof AppRoutinesIdRoute
 }
@@ -127,8 +141,10 @@ export interface FileRoutesByTo {
   '/routines': typeof AppRoutinesRoute
   '/session': typeof AppSessionRoute
   '/system': typeof AppSystemRoute
+  '/tools': typeof AppToolsRoute
   '/vault': typeof AppVaultRoute
   '/': typeof AppIndexRoute
+  '/exercises/$id': typeof AppExercisesIdRoute
   '/logbook/$id': typeof AppLogbookIdRoute
   '/routines/$id': typeof AppRoutinesIdRoute
 }
@@ -145,8 +161,10 @@ export interface FileRoutesById {
   '/_app/routines': typeof AppRoutinesRoute
   '/_app/session': typeof AppSessionRoute
   '/_app/system': typeof AppSystemRoute
+  '/_app/tools': typeof AppToolsRoute
   '/_app/vault': typeof AppVaultRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/exercises_/$id': typeof AppExercisesIdRoute
   '/_app/logbook_/$id': typeof AppLogbookIdRoute
   '/_app/routines_/$id': typeof AppRoutinesIdRoute
 }
@@ -164,7 +182,9 @@ export interface FileRouteTypes {
     | '/routines'
     | '/session'
     | '/system'
+    | '/tools'
     | '/vault'
+    | '/exercises/$id'
     | '/logbook/$id'
     | '/routines/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -179,8 +199,10 @@ export interface FileRouteTypes {
     | '/routines'
     | '/session'
     | '/system'
+    | '/tools'
     | '/vault'
     | '/'
+    | '/exercises/$id'
     | '/logbook/$id'
     | '/routines/$id'
   id:
@@ -196,8 +218,10 @@ export interface FileRouteTypes {
     | '/_app/routines'
     | '/_app/session'
     | '/_app/system'
+    | '/_app/tools'
     | '/_app/vault'
     | '/_app/'
+    | '/_app/exercises_/$id'
     | '/_app/logbook_/$id'
     | '/_app/routines_/$id'
   fileRoutesById: FileRoutesById
@@ -292,11 +316,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSystemRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/tools': {
+      id: '/_app/tools'
+      path: '/tools'
+      fullPath: '/tools'
+      preLoaderRoute: typeof AppToolsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/vault': {
       id: '/_app/vault'
       path: '/vault'
       fullPath: '/vault'
       preLoaderRoute: typeof AppVaultRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/exercises_/$id': {
+      id: '/_app/exercises_/$id'
+      path: '/exercises/$id'
+      fullPath: '/exercises/$id'
+      preLoaderRoute: typeof AppExercisesIdRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/logbook_/$id': {
@@ -327,8 +365,10 @@ interface AppRouteChildren {
   AppRoutinesRoute: typeof AppRoutinesRoute
   AppSessionRoute: typeof AppSessionRoute
   AppSystemRoute: typeof AppSystemRoute
+  AppToolsRoute: typeof AppToolsRoute
   AppVaultRoute: typeof AppVaultRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppExercisesIdRoute: typeof AppExercisesIdRoute
   AppLogbookIdRoute: typeof AppLogbookIdRoute
   AppRoutinesIdRoute: typeof AppRoutinesIdRoute
 }
@@ -344,8 +384,10 @@ const AppRouteChildren: AppRouteChildren = {
   AppRoutinesRoute: AppRoutinesRoute,
   AppSessionRoute: AppSessionRoute,
   AppSystemRoute: AppSystemRoute,
+  AppToolsRoute: AppToolsRoute,
   AppVaultRoute: AppVaultRoute,
   AppIndexRoute: AppIndexRoute,
+  AppExercisesIdRoute: AppExercisesIdRoute,
   AppLogbookIdRoute: AppLogbookIdRoute,
   AppRoutinesIdRoute: AppRoutinesIdRoute,
 }

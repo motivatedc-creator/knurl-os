@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -88,14 +88,14 @@ function ExercisesPage() {
       </Panel>
       <ul className="divide-y divide-hairline rounded-xl border border-hairline">
         {filtered.map((ex) => (
-          <li key={ex.id} className="flex items-center justify-between px-4 py-3">
-            <span>
+          <li key={ex.id} className="flex items-center justify-between gap-3 px-4 py-3">
+            <Link to="/exercises/$id" params={{ id: ex.id }} className="min-w-0 flex-1">
               <span className="block text-sm font-medium">{ex.name}</span>
               <span className="text-[11px] uppercase tracking-[0.12em] text-steel">
                 {MUSCLE_LABEL[ex.primaryMuscleGroup]} · {EQUIPMENT_LABEL[ex.equipmentType]}
                 {ex.isCustom ? " · custom" : ""}
               </span>
-            </span>
+            </Link>
             <Button
               size="sm"
               variant="ghost"

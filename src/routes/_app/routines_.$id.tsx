@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Panel } from "@/components/ui/drawer";
 import type { TemplateExercise } from "@/lib/domain/schema";
-import { useExercises, useVaultQuery } from "@/lib/hooks";
+import { useExercises, useRecentExerciseIds, useVaultQuery } from "@/lib/hooks";
 import { vault } from "@/lib/storage/repo";
 import { newId, nowIso } from "@/lib/utils";
 
@@ -19,6 +19,7 @@ function RoutineEditor() {
   const { id } = Route.useParams();
   const row = useVaultQuery(() => vault.getTemplate(id), [id]);
   const catalog = useExercises();
+  const recentIds = useRecentExerciseIds();
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [notes, setNotes] = useState("");
@@ -63,6 +64,7 @@ function RoutineEditor() {
         open={picker}
         onOpenChange={setPicker}
         exercises={catalog}
+        recentIds={recentIds}
         onSelect={(ex) => {
           setLines((prev) => [
             ...prev,

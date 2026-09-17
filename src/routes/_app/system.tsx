@@ -8,6 +8,7 @@ import {
   Library,
   ListChecks,
   Palette,
+  Wrench,
   Weight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,11 +23,12 @@ export const Route = createFileRoute("/_app/system")({
 });
 
 const LINKS = [
-  { to: "/routines", label: "Routines", copy: "Build and reorder templates", icon: ListChecks },
+  { to: "/tools", label: "Iron math", copy: "Plate solver and warm-up ramp", icon: Wrench },
+  { to: "/routines", label: "Routines", copy: "Build, copy, and reorder templates", icon: ListChecks },
   { to: "/exercises", label: "Catalog", copy: "Starter library and custom movements", icon: Library },
   { to: "/biometrics", label: "Biometrics", copy: "Bodyweight and circumferences", icon: Activity },
   { to: "/hardware", label: "Iron", copy: "Bars, plates, collars", icon: Weight },
-  { to: "/vault", label: "Vault", copy: "JSON export and restore", icon: Database },
+  { to: "/vault", label: "Vault", copy: "JSON export, merge, and restore", icon: Database },
   { to: "/import", label: "Import", copy: "Strong CSV with preview", icon: Download },
   { to: "/ecosystem", label: "Institution", copy: "Manifesto, Iron, Halls, Academy", icon: Building2 },
 ] as const;
@@ -73,6 +75,16 @@ function SystemPage() {
               {n}
             </Chip>
           ))}
+        </Row>
+        <Row label="Rest chime">
+          <Chip on={prefs.restBeep} onClick={() => prefs.update({ restBeep: !prefs.restBeep })}>
+            {prefs.restBeep ? "on" : "off"}
+          </Chip>
+        </Row>
+        <Row label="Rest vibrate">
+          <Chip on={prefs.restVibrate} onClick={() => prefs.update({ restVibrate: !prefs.restVibrate })}>
+            {prefs.restVibrate ? "on" : "off"}
+          </Chip>
         </Row>
         <div>
           <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-steel">App mark</p>

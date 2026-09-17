@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Dumbbell, Flame, Plus, TimerReset } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { ExercisePicker } from "@/components/exercise-picker";
 import { PlateStack } from "@/components/plates/stack";
@@ -10,15 +10,25 @@ import { Input } from "@/components/ui/input";
 import type { LoadProfile } from "@/lib/domain/plates";
 import { solveLoad } from "@/lib/domain/plates";
 import { generateWarmup } from "@/lib/domain/warmup";
-import type { Exercise, WorkoutSet } from "@/lib/domain/schema";
+import {
+  SET_CLASS_CYCLE,
+  SET_CLASS_META,
+  type Exercise,
+  type WorkoutSet,
+} from "@/lib/domain/schema";
+import { findNewRecords } from "@/lib/domain/records";
 import { parseDecimal, toCanonicalKg, toDisplayWeight, weightIncrement } from "@/lib/domain/units";
 import { formatDuration, formatLoad, formatSet } from "@/lib/format";
-import { useActiveWorkout, useEquipment, useExercises, useTick, useVaultQuery } from "@/lib/hooks";
+import { vibrate } from "@/lib/platform/feedback";
+import { useActiveWorkout, useEquipment, useExercises, useRecentExerciseIds, useTick, useVaultQuery } from "@/lib/hooks";
 import { usePrefs } from "@/lib/store/prefs";
 import { emptyDraft, restRemaining, useSessionStore } from "@/lib/store/session";
 import {
   addExerciseToWorkout,
+  collectRecordSets,
   finishWorkout,
+  getRestTimer,
+  setRestTimer,
   startBlankWorkout,
   vault,
 } from "@/lib/storage/repo";
@@ -33,6 +43,7 @@ function SessionPage() {
   const navigate = useNavigate();
   const [picker, setPicker] = useState(false);
   const catalog = useExercises();
+  const recentIds = useRecentExerciseIds();
   const loading = workout === undefined;
 
   if (loading) {
@@ -74,6 +85,7 @@ function SessionPage() {
           open={picker}
           onOpenChange={setPicker}
           exercises={catalog}
+          recentIds={recentIds}
           onSelect={async (ex: Exercise) => {
             await addExerciseToWorkout(workout.id, ex);
           }}
@@ -94,7 +106,9 @@ function LiveSession({
 }) {
   const workout = useVaultQuery(() => vault.getWorkout(workoutId), [workoutId]);
   const equipment = useEquipment();
+  const navigate = useNavigate();
   const units = usePrefs((s) => s.units);
+  const formula = usePrefs((s) => s.oneRmFormula);
   const selected = useSessionStore((s) => s.selectedExerciseId);
   const restStartedAt = useSessionStore((s) => s.restStartedAt);
   const restDurationSec = useSessionStore((s) => s.restDurationSec);
@@ -102,15 +116,20 @@ function LiveSession({
   const drafts = useSessionStore((s) => s.drafts);
   const tick = useTick(true, 250);
   const [confirmFinish, setConfirmFinish] = useState(false);
+  const historySets = useVaultQuery(() => collectRecordSets(workoutId), [workoutId]) ?? [];
+  const hydratedRest = useRef(false);
 
   useEffect(() => {
     if (!workout) return;
     if (!selected && workout.exercises[0]) {
       useSessionStore.getState().selectExercise(workout.exercises[0].id);
     }
-    const last = lastCompleted(workout.exercises);
-    if (last && !useSessionStore.getState().restStartedAt) {
-      useSessionStore.getState().reconstructRest(last.set.completedAt, last.rest);
+    if (!hydratedRest.current) {
+      hydratedRest.current = true;
+      void getRestTimer().then((row) => {
+        if (!row) return;
+        useSessionStore.getState().reconstructRest(row.startedAt, row.durationSec);
+      });
     }
     for (const ex of workout.exercises) {
       for (const set of ex.sets) {
@@ -170,7 +189,7 @@ function LiveSession({
       }
     }
     const stamp = nowIso();
-    await vault.upsertSet({
+    const nextSet: WorkoutSet = {
       ...set,
       weightKg: weightDisplay != null ? toCanonicalKg(weightDisplay, units) : set.weightKg,
       reps: reps != null ? Math.round(reps) : set.reps,
@@ -178,9 +197,35 @@ function LiveSession({
       durationSeconds: duration != null ? Math.round(duration) : set.durationSeconds,
       isCompleted: true,
       completedAt: stamp,
-    });
+    };
+    await vault.upsertSet(nextSet);
     await vault.patchWorkout({ ...(workout ?? (await vault.getWorkout(workoutId))!), updatedAt: stamp });
+    const flags = findNewRecords(
+      historySets,
+      [
+        {
+          id: nextSet.id,
+          exerciseId: current.exerciseId,
+          weightKg: nextSet.weightKg,
+          reps: nextSet.reps,
+          classification: nextSet.classification,
+          isCompleted: true,
+          performedAt: stamp,
+        },
+      ],
+      formula,
+    );
+    if (flags[0]?.kinds.length) {
+      toast(`Record · ${flags[0].kinds.join(" · ")}`);
+      vibrate([80, 40, 80, 40, 120]);
+    }
     useSessionStore.getState().startRest(current.restSeconds, stamp);
+    void setRestTimer({
+      startedAt: stamp,
+      endsAt: new Date(Date.parse(stamp) + current.restSeconds * 1000).toISOString(),
+      durationSec: current.restSeconds,
+      label: current.snapshotName,
+    });
   }
 
   async function injectWarmup() {
@@ -239,8 +284,10 @@ function LiveSession({
   async function onFinish() {
     await finishWorkout(workoutId);
     useSessionStore.getState().resetSessionUi();
+    await setRestTimer(null);
     toast("Session closed.");
     setConfirmFinish(false);
+    navigate({ to: "/logbook/$id", params: { id: workoutId } });
   }
 
   if (!workout) return <p className="text-sm text-steel">Reading session…</p>;
@@ -324,17 +371,46 @@ function LiveSession({
                 </div>
               </div>
 
-              {remaining > 0 ? (
+              {restStartedAt ? (
                 <div className="flex items-center justify-between rounded-xl border border-oxide/40 bg-oxide/10 px-4 py-3">
                   <div>
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-oxide">Rest</p>
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-oxide">
+                      {remaining > 0 ? "Rest" : "Rest closed"}
+                    </p>
                     <p className="font-display text-4xl tabular-nums tracking-wide" data-testid="rest-timer">
                       {formatDuration(remaining)}
                     </p>
                   </div>
-                  <Button variant="ghost" onClick={() => useSessionStore.getState().skipRest()}>
-                    <TimerReset className="size-4" /> Skip
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        useSessionStore.getState().nudgeRest(15);
+                        const next = useSessionStore.getState();
+                        if (!next.restStartedAt) return;
+                        void setRestTimer({
+                          startedAt: next.restStartedAt,
+                          endsAt: new Date(
+                            Date.parse(next.restStartedAt) + next.restDurationSec * 1000,
+                          ).toISOString(),
+                          durationSec: next.restDurationSec,
+                          label: current.snapshotName,
+                        });
+                      }}
+                    >
+                      +15
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        useSessionStore.getState().skipRest();
+                        void setRestTimer(null);
+                      }}
+                    >
+                      <TimerReset className="size-4" /> Skip
+                    </Button>
+                  </div>
                 </div>
               ) : null}
 
@@ -342,6 +418,24 @@ function LiveSession({
                 {current.sets.map((set, i) => {
                   const draft = drafts[set.id] ?? emptyDraft();
                   const prev = current.previous?.[i];
+                  const prKinds =
+                    set.isCompleted && set.weightKg != null && set.reps != null
+                      ? findNewRecords(
+                          historySets,
+                          [
+                            {
+                              id: set.id,
+                              exerciseId: current.exerciseId,
+                              weightKg: set.weightKg,
+                              reps: set.reps,
+                              classification: set.classification,
+                              isCompleted: true,
+                              performedAt: set.completedAt ?? workout.startedAt,
+                            },
+                          ],
+                          formula,
+                        )[0]?.kinds
+                      : undefined;
                   return (
                     <li
                       key={set.id}
@@ -351,10 +445,43 @@ function LiveSession({
                       )}
                     >
                       <div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-[0.16em] text-steel">
-                        <span>
-                          {set.classification} · set {i + 1}
+                        <button
+                          type="button"
+                          className="rounded-md px-2 py-1 hover:bg-elevated"
+                          onClick={() => {
+                            const idx = SET_CLASS_CYCLE.indexOf(set.classification);
+                            const next = SET_CLASS_CYCLE[(idx + 1) % SET_CLASS_CYCLE.length]!;
+                            void vault.upsertSet({ ...set, classification: next });
+                          }}
+                          aria-label={`Set type ${SET_CLASS_META[set.classification].label}`}
+                        >
+                          {SET_CLASS_META[set.classification].short || "·"} {set.classification} · set {i + 1}
+                        </button>
+                        <span className="flex items-center gap-2">
+                          {prKinds?.length ? (
+                            <span className="rounded bg-oxide/20 px-1.5 py-0.5 text-[10px] font-semibold text-oxide">
+                              PR
+                            </span>
+                          ) : null}
+                          <span>Prev {formatSet(prev?.weightKg ?? null, prev?.reps ?? null, units)}</span>
+                          {prev && !set.isCompleted ? (
+                            <button
+                              type="button"
+                              className="text-oxide"
+                              onClick={() => {
+                                useSessionStore.getState().setDraft(set.id, {
+                                  weight:
+                                    prev.weightKg != null
+                                      ? String(roundDisplay(toDisplayWeight(prev.weightKg, units)))
+                                      : "",
+                                  reps: prev.reps != null ? String(prev.reps) : "",
+                                });
+                              }}
+                            >
+                              Copy
+                            </button>
+                          ) : null}
                         </span>
-                        <span>Prev {formatSet(prev?.weightKg ?? null, prev?.reps ?? null, units)}</span>
                       </div>
                       <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
                         <Field
@@ -460,6 +587,19 @@ function LiveSession({
                 Stay
               </Button>
             </div>
+            <Button
+              className="mt-2 w-full"
+              variant="ghost"
+              onClick={async () => {
+                await vault.deleteWorkout(workoutId);
+                useSessionStore.getState().resetSessionUi();
+                await setRestTimer(null);
+                toast("Session discarded.");
+                navigate({ to: "/" });
+              }}
+            >
+              Discard
+            </Button>
           </Panel>
         </div>
       ) : null}
@@ -519,17 +659,3 @@ function roundDisplay(n: number): number {
   return Math.round(n * 4) / 4;
 }
 
-function lastCompleted(
-  exercises: { restSeconds: number; sets: WorkoutSet[] }[],
-): { set: WorkoutSet; rest: number } | null {
-  let best: { set: WorkoutSet; rest: number } | null = null;
-  for (const ex of exercises) {
-    for (const set of ex.sets) {
-      if (!set.isCompleted || !set.completedAt) continue;
-      if (!best || set.completedAt > (best.set.completedAt ?? "")) {
-        best = { set, rest: ex.restSeconds };
-      }
-    }
-  }
-  return best;
-}

@@ -47,17 +47,16 @@ function SessionPage() {
   const loading = workout === undefined;
 
   if (loading) {
-    return <p className="text-sm text-steel">Reading vault…</p>;
+    return <p className="text-sm text-steel">Loading workout…</p>;
   }
 
   if (!workout) {
     return (
       <div className="flex flex-col gap-5">
         <header>
-          <p className="text-[11px] uppercase tracking-[0.32em] text-steel">Session</p>
-          <h1 className="font-display text-5xl tracking-[0.08em]">IDLE</h1>
+          <h1 className="font-display text-4xl tracking-tight">No workout yet</h1>
           <p className="mt-2 max-w-md text-sm text-steel">
-            No live session. Open an empty log or launch a routine from Command.
+            Start empty, or pick a template from Today.
           </p>
         </header>
         <Button
@@ -67,10 +66,10 @@ function SessionPage() {
           }}
           data-testid="session-start-empty"
         >
-          Open empty session
+          Start empty workout
         </Button>
         <Button size="lg" variant="outline" onClick={() => navigate({ to: "/" })}>
-          Back to command
+          Back to Today
         </Button>
       </div>
     );
@@ -184,7 +183,7 @@ function LiveSession({
     const duration = parseDecimal(draft.duration);
     if (current.snapshotTracking === "weight_reps") {
       if (weightDisplay == null || reps == null) {
-        toast("Enter load and reps before closing the set.");
+        toast("Enter weight and reps first.");
         return;
       }
     }
@@ -259,7 +258,7 @@ function LiveSession({
     }));
     const shifted = existingWorking.map((s, i) => ({ ...s, setIndex: warmupSets.length + i }));
     await vault.replaceExerciseSets(current.id, [...warmupSets, ...shifted]);
-    toast(`Ramp injected · ${ramp.length} sets`);
+    toast(`Warm-up added · ${ramp.length} sets`);
   }
 
   async function addWorkingSet() {
@@ -285,32 +284,32 @@ function LiveSession({
     await finishWorkout(workoutId);
     useSessionStore.getState().resetSessionUi();
     await setRestTimer(null);
-    toast("Session closed.");
+    toast("Workout saved.");
     setConfirmFinish(false);
     navigate({ to: "/logbook/$id", params: { id: workoutId } });
   }
 
-  if (!workout) return <p className="text-sm text-steel">Reading session…</p>;
+  if (!workout) return <p className="text-sm text-steel">Loading workout…</p>;
 
   return (
     <div className="flex flex-col gap-5">
       {picker}
       <header className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.32em] text-oxide">Live</p>
-          <h1 className="font-display text-4xl tracking-[0.08em] md:text-5xl">{workout.name}</h1>
+          <p className="text-xs font-semibold text-oxide">In progress</p>
+          <h1 className="font-display text-4xl tracking-tight md:text-5xl">{workout.name}</h1>
           <p className="mt-1 tabular-nums text-sm text-steel">{formatDuration(elapsed)}</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => setConfirmFinish(true)} data-testid="finish-session">
-          Close
+          Finish
         </Button>
       </header>
 
       {workout.exercises.length === 0 ? (
         <Panel className="flex flex-col items-start gap-3">
-          <p className="text-sm text-steel">Empty log. Add a movement from the catalog.</p>
+          <p className="text-sm text-steel">No exercises yet. Add one from your library.</p>
           <Button onClick={onAdd} data-testid="add-exercise">
-            <Plus className="size-4" /> Add movement
+            <Plus className="size-4" /> Add exercise
           </Button>
         </Panel>
       ) : (
@@ -358,7 +357,7 @@ function LiveSession({
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" variant="steel" onClick={injectWarmup} data-testid="inject-warmup">
-                    <Flame className="size-3.5" /> Ramp
+                    <Flame className="size-3.5" /> Warm-up
                   </Button>
                   <Button
                     size="sm"
@@ -374,9 +373,7 @@ function LiveSession({
               {restStartedAt ? (
                 <div className="flex items-center justify-between rounded-xl border border-oxide/40 bg-oxide/10 px-4 py-3">
                   <div>
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-oxide">
-                      {remaining > 0 ? "Rest" : "Rest closed"}
-                    </p>
+                    <p className="text-xs font-semibold text-oxide">{remaining > 0 ? "Rest" : "Rest done"}</p>
                     <p className="font-display text-4xl tabular-nums tracking-wide" data-testid="rest-timer">
                       {formatDuration(remaining)}
                     </p>
@@ -521,7 +518,7 @@ function LiveSession({
                           onClick={() => complete(set)}
                           data-testid={`complete-set-${i}`}
                         >
-                          {set.isCompleted ? "Done" : "Set"}
+                          {set.isCompleted ? "Done" : "Log"}
                         </Button>
                       </div>
                     </li>
@@ -539,7 +536,7 @@ function LiveSession({
       <Drawer
         open={Boolean(plateSetId)}
         onOpenChange={(o) => !o && useSessionStore.getState().openPlates(null)}
-        title="Load stack"
+        title="Plate calculator"
       >
         {plateSolution ? (
           <div className="flex flex-col gap-4">
@@ -564,27 +561,27 @@ function LiveSession({
                 useSessionStore.getState().openPlates(null);
               }}
             >
-              Apply stack
+              Apply plates
             </Button>
           </div>
         ) : (
-          <p className="text-sm text-steel">Enter a working load to resolve the stack.</p>
+          <p className="text-sm text-steel">Enter a weight to see the plate breakdown.</p>
         )}
       </Drawer>
 
       {confirmFinish ? (
         <div className="fixed inset-0 z-40 grid place-items-end bg-mill/70 p-4 md:place-items-center">
           <Panel className="w-full max-w-md p-5">
-            <h3 className="font-display text-3xl tracking-[0.1em]">CLOSE SESSION</h3>
+            <h3 className="font-display text-3xl tracking-tight">Finish workout?</h3>
             <p className="mt-2 text-sm text-steel">
-              Marks the session complete and writes duration. Sets already closed stay in the vault.
+              This saves it to History. Logged sets stay even if you leave some unfinished.
             </p>
             <div className="mt-4 flex gap-2">
               <Button className="flex-1" variant="oxide" onClick={onFinish} data-testid="confirm-finish">
-                Close session
+                Finish
               </Button>
               <Button className="flex-1" variant="outline" onClick={() => setConfirmFinish(false)}>
-                Stay
+                Keep lifting
               </Button>
             </div>
             <Button
@@ -594,11 +591,11 @@ function LiveSession({
                 await vault.deleteWorkout(workoutId);
                 useSessionStore.getState().resetSessionUi();
                 await setRestTimer(null);
-                toast("Session discarded.");
+                toast("Workout discarded.");
                 navigate({ to: "/" });
               }}
             >
-              Discard
+              Discard workout
             </Button>
           </Panel>
         </div>

@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { PageHeader } from "@/components/layout/page-header";
 import { Input } from "@/components/ui/input";
 import { formatClock, formatDuration } from "@/lib/format";
 import { useWorkouts } from "@/lib/hooks";
@@ -21,18 +22,15 @@ function LogbookPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <header>
-        <p className="text-[11px] uppercase tracking-[0.32em] text-steel">Logbook</p>
-        <h1 className="font-display text-5xl tracking-[0.08em]">LEDGER</h1>
-      </header>
+      <PageHeader title="History" subtitle="Every finished workout on this device." />
       <Input
-        placeholder="Filter by session name"
+        placeholder="Search workouts"
         value={q}
         onChange={(e) => setQ(e.target.value)}
         data-testid="log-search"
       />
       {rows.length === 0 ? (
-        <p className="text-sm text-steel">No sessions stored.</p>
+        <p className="text-sm text-steel">No workouts yet. Start one from Today.</p>
       ) : (
         <ul className="divide-y divide-hairline rounded-xl border border-hairline">
           {rows.map((w) => (

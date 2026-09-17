@@ -17,7 +17,7 @@ export function ExercisePicker({
   onOpenChange,
   exercises,
   onSelect,
-  title = "Catalog",
+  title = "Exercises",
   recentIds = [],
 }: {
   open: boolean;

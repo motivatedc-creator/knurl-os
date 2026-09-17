@@ -11,7 +11,10 @@ test("create template, log with plates, survive refresh, complete, analytics upd
 }) => {
   await page.goto("/");
   await waitForVault(page);
-  await expect(page.getByRole("heading", { name: "FLOOR" })).toBeVisible({ timeout: 20_000 });
+  const welcome = page.getByTestId("onboarding-done");
+  await expect(welcome.or(page.getByRole("heading", { name: "Today" }))).toBeVisible({ timeout: 20_000 });
+  if (await welcome.isVisible()) await welcome.click();
+  await expect(page.getByRole("heading", { name: "Today" })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId("launch-Lower A")).toBeVisible({ timeout: 20_000 });
 
   await page.goto("/routines");
@@ -25,7 +28,7 @@ test("create template, log with plates, survive refresh, complete, analytics upd
   await page.getByTestId("exercise-search").fill("Back Squat");
   await page.getByTestId("pick-Back Squat").click();
   await page.getByTestId("save-routine").click();
-  await expect(page.getByText("Routine written.")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("Template saved.")).toBeVisible({ timeout: 10_000 });
 
   await page.goto("/");
   await waitForVault(page);
@@ -40,7 +43,7 @@ test("create template, log with plates, survive refresh, complete, analytics upd
   await expect(page.getByTestId("complete-set-0")).toContainText("Done");
 
   await page.getByTestId("open-plates").click();
-  await expect(page.getByText("Load stack")).toBeVisible();
+  await expect(page.getByText("Plate calculator")).toBeVisible();
 
   await page.reload();
   await waitForVault(page);
@@ -54,6 +57,6 @@ test("create template, log with plates, survive refresh, complete, analytics upd
 
   await page.goto("/analytics");
   await waitForVault(page);
-  await expect(page.getByRole("heading", { name: "OUTPUT" })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("heading", { name: "Analytics" })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId("tonnage-table")).toContainText("Quads", { timeout: 15_000 });
 });

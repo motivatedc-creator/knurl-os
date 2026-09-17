@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Panel } from "@/components/ui/drawer";
@@ -28,25 +29,22 @@ function HardwarePage() {
   async function save(next: EquipmentProfile) {
     setProfile(next);
     await vault.saveEquipment(next);
-    toast("Inventory written.");
+    toast("Equipment saved.");
   }
 
   return (
     <div className="flex flex-col gap-5">
-      <header>
-        <p className="text-[11px] uppercase tracking-[0.32em] text-steel">Iron</p>
-        <h1 className="font-display text-5xl tracking-[0.08em]">INVENTORY</h1>
-        <p className="mt-2 max-w-md text-sm text-steel">
-          Finite plate counts. The loader will not invent discs you do not own. Side symmetry is enforced.
-        </p>
-      </header>
+      <PageHeader
+        title="Equipment"
+        subtitle="Only these plates get used in the calculator. Even counts, heaviest inside."
+      />
       <div className="flex gap-2">
         <Button
           variant="outline"
           size="sm"
           onClick={() => save(defaultEquipment(units))}
         >
-          Load standard {units} set
+          Use standard {units} gym
         </Button>
       </div>
       <Panel>

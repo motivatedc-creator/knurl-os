@@ -11,6 +11,7 @@ import {
   Wrench,
   Weight,
 } from "lucide-react";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/drawer";
 import { usePrefs } from "@/lib/store/prefs";
@@ -23,14 +24,14 @@ export const Route = createFileRoute("/_app/system")({
 });
 
 const LINKS = [
-  { to: "/tools", label: "Iron math", copy: "Plate solver and warm-up ramp", icon: Wrench },
-  { to: "/routines", label: "Routines", copy: "Build, copy, and reorder templates", icon: ListChecks },
-  { to: "/exercises", label: "Catalog", copy: "Starter library and custom movements", icon: Library },
-  { to: "/biometrics", label: "Biometrics", copy: "Bodyweight and circumferences", icon: Activity },
-  { to: "/hardware", label: "Iron", copy: "Bars, plates, collars", icon: Weight },
-  { to: "/vault", label: "Vault", copy: "JSON export, merge, and restore", icon: Database },
-  { to: "/import", label: "Import", copy: "Strong CSV with preview", icon: Download },
-  { to: "/ecosystem", label: "Institution", copy: "Manifesto, Iron, Halls, Academy", icon: Building2 },
+  { to: "/tools", label: "Plate calculator", copy: "Load a bar and build a warm-up", icon: Wrench },
+  { to: "/routines", label: "Templates", copy: "Build, copy, and start workouts", icon: ListChecks },
+  { to: "/exercises", label: "Exercises", copy: "Library plus your custom lifts", icon: Library },
+  { to: "/biometrics", label: "Measurements", copy: "Bodyweight and girths", icon: Activity },
+  { to: "/hardware", label: "Equipment", copy: "Bars, plates, and collars you own", icon: Weight },
+  { to: "/vault", label: "Backup", copy: "Export, merge, or restore this device", icon: Database },
+  { to: "/import", label: "Import from Strong", copy: "Preview a CSV, then write it in", icon: Download },
+  { to: "/ecosystem", label: "About Knurl", copy: "Iron, halls, and the academy", icon: Building2 },
 ] as const;
 
 function SystemPage() {
@@ -38,10 +39,7 @@ function SystemPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header>
-        <p className="text-[11px] uppercase tracking-[0.32em] text-steel">System</p>
-        <h1 className="font-display text-5xl tracking-[0.08em]">PREFS</h1>
-      </header>
+      <PageHeader title="More" subtitle="Settings, templates, backup, and the rest of the gym." />
 
       <Panel className="flex flex-col gap-4">
         <Row label="Units">
@@ -76,18 +74,18 @@ function SystemPage() {
             </Chip>
           ))}
         </Row>
-        <Row label="Rest chime">
+        <Row label="Rest timer sound">
           <Chip on={prefs.restBeep} onClick={() => prefs.update({ restBeep: !prefs.restBeep })}>
-            {prefs.restBeep ? "on" : "off"}
+            {prefs.restBeep ? "On" : "Off"}
           </Chip>
         </Row>
-        <Row label="Rest vibrate">
+        <Row label="Rest timer vibrate">
           <Chip on={prefs.restVibrate} onClick={() => prefs.update({ restVibrate: !prefs.restVibrate })}>
-            {prefs.restVibrate ? "on" : "off"}
+            {prefs.restVibrate ? "On" : "Off"}
           </Chip>
         </Row>
         <div>
-          <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-steel">App mark</p>
+          <p className="mb-2 text-xs text-steel">App icon</p>
           <div className="flex gap-3">
             {(["mark", "solid", "oxide"] as AppIcon[]).map((v) => (
               <button
@@ -115,15 +113,15 @@ function SystemPage() {
                 <item.icon className="size-5 text-steel" strokeWidth={1.6} />
                 <span>
                   <span className="block font-medium">{item.label}</span>
-                  <span className="text-[11px] text-steel">{item.copy}</span>
+                  <span className="text-xs text-steel">{item.copy}</span>
                 </span>
               </Panel>
             </Link>
           </li>
         ))}
       </ul>
-      <p className="flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-steel">
-        <Palette className="size-3.5" /> Mill-scale field · chalk type · oxide only when live
+      <p className="flex items-center gap-2 text-xs text-steel">
+        <Palette className="size-3.5" /> Dark mill theme. Chalk type. Orange only when a workout is live.
       </p>
       <Button variant="outline" asChild>
         <a href="?install=1&platform=ios">Install on this device</a>
@@ -135,7 +133,7 @@ function SystemPage() {
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-steel">{label}</p>
+      <p className="mb-2 text-xs text-steel">{label}</p>
       <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   );

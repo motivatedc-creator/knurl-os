@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Panel } from "@/components/ui/drawer";
@@ -65,10 +66,7 @@ function BiometricsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <header>
-        <p className="text-[11px] uppercase tracking-[0.32em] text-steel">Biometrics</p>
-        <h1 className="font-display text-5xl tracking-[0.08em]">BODY</h1>
-      </header>
+      <PageHeader title="Measurements" subtitle="Bodyweight and girths, stored on this device." />
       <Panel className="flex flex-col gap-3">
         <label className="flex flex-col gap-1">
           <span className="text-[10px] uppercase tracking-[0.16em] text-steel">Metric</span>

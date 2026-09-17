@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Panel } from "@/components/ui/drawer";
@@ -54,18 +55,15 @@ function ExercisesPage() {
     };
     await vault.upsertExercise(row);
     setName("");
-    toast("Custom movement stored.");
+    toast("Exercise saved.");
   }
 
   return (
     <div className="flex flex-col gap-5">
-      <header>
-        <p className="text-[11px] uppercase tracking-[0.32em] text-steel">Catalog</p>
-        <h1 className="font-display text-5xl tracking-[0.08em]">MOVEMENTS</h1>
-      </header>
-      <Input placeholder="Search catalog" value={q} onChange={(e) => setQ(e.target.value)} />
+      <PageHeader title="Exercises" subtitle="Search the library or add a custom lift." />
+      <Input placeholder="Search exercises" value={q} onChange={(e) => setQ(e.target.value)} />
       <Panel className="flex flex-col gap-2 p-3">
-        <p className="text-[10px] uppercase tracking-[0.16em] text-steel">Custom movement</p>
+        <p className="text-xs text-steel">New exercise</p>
         <Input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
         <div className="grid grid-cols-3 gap-2">
           <select className="h-12 rounded-md border border-hairline bg-inset px-2 text-sm" value={primary} onChange={(e) => setPrimary(e.target.value as MuscleGroup)}>
@@ -84,7 +82,7 @@ function ExercisesPage() {
             ))}
           </select>
         </div>
-        <Button onClick={create}>Add to catalog</Button>
+        <Button onClick={create}>Add exercise</Button>
       </Panel>
       <ul className="divide-y divide-hairline rounded-xl border border-hairline">
         {filtered.map((ex) => (

@@ -7,6 +7,7 @@ import {
   Tooltip,
   XAxis,
 } from "recharts";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/drawer";
 import { brand } from "@/lib/brand/tokens";
@@ -18,16 +19,17 @@ import { loadDashboardStats } from "@/lib/storage/stats";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/")({
-  component: CommandCenter,
+  component: TodayPage,
 });
 
-function CommandCenter() {
+function TodayPage() {
   const navigate = useNavigate();
   const templates = useTemplates();
   const workouts = useWorkouts();
   const units = usePrefs((s) => s.units);
   const onboardingDone = usePrefs((s) => s.onboardingDone);
   const restBeep = usePrefs((s) => s.restBeep);
+  const hydrated = usePrefs((s) => s.hydrated);
   const updatePrefs = usePrefs((s) => s.update);
   const mounted = useMounted();
   const stats = useVaultQuery(() => loadDashboardStats());
@@ -37,6 +39,11 @@ function CommandCenter() {
     stats && stats.prevWeekVolumeKg > 0
       ? ((stats.weekVolumeKg - stats.prevWeekVolumeKg) / stats.prevWeekVolumeKg) * 100
       : null;
+  const today = new Intl.DateTimeFormat(undefined, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(new Date());
 
   async function emptySession() {
     await startBlankWorkout();
@@ -48,15 +55,51 @@ function CommandCenter() {
     navigate({ to: "/session" });
   }
 
+  if (hydrated && !onboardingDone) {
+    return (
+      <div className="flex flex-col gap-6" data-testid="onboarding">
+        <PageHeader title="Welcome to Knurl" subtitle="A simple lifting log that stays on this phone. Nothing is uploaded." />
+        <Panel className="flex flex-col gap-4 p-5">
+          <div>
+            <p className="text-sm font-medium">How should weights look?</p>
+            <p className="mt-1 text-sm text-steel">You can switch later in More → Settings.</p>
+          </div>
+          <div className="flex gap-2">
+            {(["kg", "lb"] as const).map((u) => (
+              <button
+                key={u}
+                type="button"
+                onClick={() => updatePrefs({ units: u })}
+                className={cn(
+                  "h-12 flex-1 rounded-md text-sm font-medium",
+                  units === u ? "bg-chalk text-mill" : "bg-elevated text-steel",
+                )}
+              >
+                {u === "kg" ? "Kilograms" : "Pounds"}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => updatePrefs({ restBeep: !restBeep })}
+            className={cn(
+              "h-12 rounded-md text-sm font-medium",
+              restBeep ? "bg-chalk text-mill" : "bg-elevated text-steel",
+            )}
+          >
+            Rest timer sound: {restBeep ? "On" : "Off"}
+          </button>
+          <Button size="lg" onClick={() => updatePrefs({ onboardingDone: true })} data-testid="onboarding-done">
+            Let’s go
+          </Button>
+        </Panel>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <p className="text-[11px] uppercase tracking-[0.32em] text-steel">Command</p>
-        <h1 className="font-display text-5xl tracking-[0.08em] md:text-6xl">FLOOR</h1>
-        <p className="max-w-md text-sm text-steel">
-          Local vault. No account. Load is stored on this device.
-        </p>
-      </header>
+      <PageHeader title="Today" subtitle={today} />
 
       {active ? (
         <button
@@ -66,59 +109,22 @@ function CommandCenter() {
           data-testid="resume-session"
         >
           <span>
-            <span className="block text-[11px] uppercase tracking-[0.22em] text-oxide">Session live</span>
+            <span className="block text-xs font-semibold text-oxide">Workout in progress</span>
             <span className="text-lg font-medium">{active.name}</span>
           </span>
-          <Play className="size-5 text-oxide" />
+          <span className="flex items-center gap-2 text-sm font-medium text-oxide">
+            Resume <Play className="size-4" />
+          </span>
         </button>
-      ) : null}
-
-      {!onboardingDone ? (
-        <Panel className="flex flex-col gap-3 p-4" data-testid="onboarding">
-          <p className="text-[11px] uppercase tracking-[0.32em] text-steel">First pour</p>
-          <h2 className="font-display text-3xl tracking-[0.08em]">THIS DEVICE IS THE VAULT</h2>
-          <p className="text-sm text-steel">
-            No account. Loads are stored as kilograms. Display units and rest cues stay on this
-            device and can be changed later in System.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {(["kg", "lb"] as const).map((u) => (
-              <button
-                key={u}
-                type="button"
-                onClick={() => updatePrefs({ units: u })}
-                className={cn(
-                  "h-10 rounded-md px-3 text-xs uppercase tracking-[0.14em]",
-                  units === u ? "bg-chalk text-mill" : "bg-elevated text-steel",
-                )}
-              >
-                {u}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => updatePrefs({ restBeep: !restBeep })}
-              className={cn(
-                "h-10 rounded-md px-3 text-xs uppercase tracking-[0.14em]",
-                restBeep ? "bg-chalk text-mill" : "bg-elevated text-steel",
-              )}
-            >
-              Rest chime {restBeep ? "on" : "off"}
-            </button>
-          </div>
-          <Button onClick={() => updatePrefs({ onboardingDone: true })} data-testid="onboarding-done">
-            Continue to floor
-          </Button>
-        </Panel>
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Button size="lg" onClick={emptySession} data-testid="start-empty">
           <Plus className="size-4" />
-          Empty session
+          Start empty workout
         </Button>
         <Button size="lg" variant="outline" onClick={() => navigate({ to: "/routines" })}>
-          Manage routines
+          Edit templates
         </Button>
       </div>
 
@@ -126,16 +132,16 @@ function CommandCenter() {
         <Stat label="Streak" value={stats ? `${stats.streak}d` : "—"} />
         <Stat label="This week" value={stats ? String(stats.sessionsThisWeek) : "—"} />
         <Stat
-          label="Tonnage"
+          label="Volume"
           value={stats ? formatLoad(stats.weekVolumeKg, units) : "—"}
-          hint={delta == null ? "no prior week" : `${delta >= 0 ? "+" : ""}${delta.toFixed(0)}%`}
+          hint={delta == null ? "vs last week" : `${delta >= 0 ? "+" : ""}${delta.toFixed(0)}%`}
         />
       </div>
 
       <Panel className="p-4">
         <div className="mb-3 flex items-end justify-between">
-          <h2 className="text-[11px] uppercase tracking-[0.22em] text-steel">Seven-day tonnage</h2>
-          <span className="text-[11px] text-steel">{units}</span>
+          <h2 className="text-sm font-medium">Last 7 days</h2>
+          <span className="text-xs text-steel">{units}</span>
         </div>
         <div className="h-36">
           {mounted && stats ? (
@@ -156,7 +162,7 @@ function CommandCenter() {
                     color: brand.chalk,
                     fontSize: 12,
                   }}
-                  formatter={(value) => [`${value} kg`, "Tonnage"]}
+                  formatter={(value) => [`${value} kg`, "Volume"]}
                 />
                 <Bar dataKey="kg" fill={brand.chalk} radius={[2, 2, 0, 0]} />
               </BarChart>
@@ -168,17 +174,15 @@ function CommandCenter() {
       </Panel>
 
       <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-[11px] uppercase tracking-[0.22em] text-steel">Routines</h2>
-        </div>
+        <h2 className="text-sm font-medium">Start a template</h2>
         <ul className="grid gap-2 sm:grid-cols-2">
           {templates.map((t) => (
             <li key={t.id}>
               <Panel className="flex items-center justify-between gap-3 p-4">
                 <div>
                   <p className="font-medium">{t.name}</p>
-                  <p className="text-[11px] uppercase tracking-[0.14em] text-steel">
-                    {t.exercises.length} movements
+                  <p className="text-xs text-steel">
+                    {t.exercises.length} exercise{t.exercises.length === 1 ? "" : "s"}
                   </p>
                 </div>
                 <Button
@@ -187,7 +191,7 @@ function CommandCenter() {
                   onClick={() => fromTemplate(t.id)}
                   data-testid={`launch-${t.name}`}
                 >
-                  Launch
+                  Start
                 </Button>
               </Panel>
             </li>
@@ -196,9 +200,9 @@ function CommandCenter() {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-[11px] uppercase tracking-[0.22em] text-steel">Recent</h2>
+        <h2 className="text-sm font-medium">Recent workouts</h2>
         {recent.length === 0 ? (
-          <p className="text-sm text-steel">No completed sessions on this device.</p>
+          <p className="text-sm text-steel">No workouts yet. Start a template above.</p>
         ) : (
           <ul className="divide-y divide-hairline rounded-xl border border-hairline">
             {recent.map((w) => (
@@ -210,7 +214,7 @@ function CommandCenter() {
                 >
                   <span>
                     <span className="block font-medium">{w.name}</span>
-                    <span className="text-[11px] text-steel">
+                    <span className="text-xs text-steel">
                       {formatClock(w.completedAt ?? w.startedAt)}
                     </span>
                   </span>
@@ -227,9 +231,9 @@ function CommandCenter() {
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <Panel className="px-3 py-3">
-      <p className="text-[10px] uppercase tracking-[0.18em] text-steel">{label}</p>
-      <p className="font-display text-3xl tabular-nums tracking-wide">{value}</p>
-      {hint ? <p className={cn("text-[11px] text-steel")}>{hint}</p> : null}
+      <p className="text-xs text-steel">{label}</p>
+      <p className="font-display text-3xl tabular-nums tracking-tight">{value}</p>
+      {hint ? <p className={cn("text-xs text-steel")}>{hint}</p> : null}
     </Panel>
   );
 }

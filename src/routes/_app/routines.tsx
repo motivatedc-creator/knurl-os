@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/drawer";
 import { useTemplates } from "@/lib/hooks";
@@ -20,7 +21,7 @@ function RoutinesPage() {
       await vault.saveTemplate(
         {
           id,
-          name: "Untitled routine",
+          name: "Untitled template",
           notes: "",
           isArchived: false,
           createdAt: nowIso(),
@@ -30,21 +31,21 @@ function RoutinesPage() {
       );
       await navigate({ to: "/routines/$id", params: { id } });
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Could not write routine.");
+      toast(err instanceof Error ? err.message : "Could not save template.");
     }
   }
 
   return (
     <div className="flex flex-col gap-5">
-      <header className="flex items-end justify-between gap-3">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.32em] text-steel">Routines</p>
-          <h1 className="font-display text-5xl tracking-[0.08em]">TEMPLATES</h1>
-        </div>
-        <Button onClick={create} data-testid="new-routine">
-          New routine
-        </Button>
-      </header>
+      <PageHeader
+        title="Templates"
+        subtitle="Reusable workouts you can start from Today."
+        action={
+          <Button onClick={create} data-testid="new-routine">
+            New template
+          </Button>
+        }
+      />
       <ul className="flex flex-col gap-2">
         {templates.map((t) => (
           <li key={t.id}>
@@ -56,7 +57,7 @@ function RoutinesPage() {
               >
                 <p className="font-medium">{t.name}</p>
                 <p className="text-[11px] uppercase tracking-[0.14em] text-steel">
-                  {t.exercises.length} movements
+                  {t.exercises.length} exercise{t.exercises.length === 1 ? "" : "s"}
                 </p>
               </button>
               <div className="flex gap-2">
@@ -65,7 +66,7 @@ function RoutinesPage() {
                   variant="steel"
                   onClick={async () => {
                     const next = await duplicateTemplate(t.id);
-                    toast("Routine copied.");
+                    toast("Template copied.");
                     navigate({ to: "/routines/$id", params: { id: next } });
                   }}
                 >
@@ -80,7 +81,7 @@ function RoutinesPage() {
                     navigate({ to: "/session" });
                   }}
                 >
-                  Launch
+                  Start
                 </Button>
               </div>
             </Panel>

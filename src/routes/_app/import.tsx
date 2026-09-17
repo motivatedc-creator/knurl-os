@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/drawer";
 import { commitCsvImport, previewCsvImport, type ImportPreview } from "@/lib/storage/repo";
@@ -37,13 +38,10 @@ function ImportPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <header>
-        <p className="text-[11px] uppercase tracking-[0.32em] text-steel">Import</p>
-        <h1 className="font-display text-5xl tracking-[0.08em]">STRONG CSV</h1>
-        <p className="mt-2 max-w-md text-sm text-steel">
-          Headers are auto-mapped. Nothing is written until you confirm the preview.
-        </p>
-      </header>
+      <PageHeader
+        title="Import from Strong"
+        subtitle="Pick a CSV. You’ll see a preview before anything is saved."
+      />
       <input
         type="file"
         accept=".csv,text/csv"

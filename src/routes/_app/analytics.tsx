@@ -11,6 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { PageHeader } from "@/components/layout/page-header";
 import { Panel } from "@/components/ui/drawer";
 import { brand } from "@/lib/brand/tokens";
 import { formatLoad } from "@/lib/format";
@@ -44,13 +45,10 @@ function AnalyticsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header>
-        <p className="text-[11px] uppercase tracking-[0.32em] text-steel">Analytics</p>
-        <h1 className="font-display text-5xl tracking-[0.08em]">OUTPUT</h1>
-        <p className="mt-2 text-sm text-steel">
-          Estimated 1RM via {formula === "epley" ? "Epley" : "Brzycki"}. Warm-up sets excluded.
-        </p>
-      </header>
+      <PageHeader
+        title="Analytics"
+        subtitle={`Estimated 1RM uses ${formula === "epley" ? "Epley" : "Brzycki"}. Warm-up sets are left out.`}
+      />
       <div className="flex flex-wrap gap-2" data-testid="range-filters">
         {RANGES.map((r) => (
           <button
@@ -122,7 +120,7 @@ function AnalyticsPage() {
       </Panel>
 
       <Panel>
-        <h2 className="mb-3 text-[11px] uppercase tracking-[0.2em] text-steel">Tonnage by muscle</h2>
+        <h2 className="mb-3 text-sm font-medium">Volume by muscle</h2>
         <div className="h-56">
           {mounted && data?.buckets.length ? (
             <ResponsiveContainer width="100%" height="100%">

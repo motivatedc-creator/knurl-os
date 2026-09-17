@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Panel } from "@/components/ui/drawer";
 import { findNewRecords, PR_LABEL } from "@/lib/domain/records";
 import { workoutVolumeFromSets } from "@/lib/domain/volume";
-import { formatClock, formatDuration, formatLoad, formatSet } from "@/lib/format";
+import { formatClock, formatDuration, formatLoad } from "@/lib/format";
 import { useVaultQuery } from "@/lib/hooks";
 import { usePrefs } from "@/lib/store/prefs";
 import { collectRecordSets, vault } from "@/lib/storage/repo";
@@ -50,8 +50,8 @@ function WorkoutDetail() {
     };
   }, [workout, history, formula]);
 
-  if (workout === undefined) return <p className="text-sm text-steel">Reading ledger…</p>;
-  if (!workout) return <p className="text-sm text-steel">Session missing.</p>;
+  if (workout === undefined) return <p className="text-sm text-steel">Loading workout…</p>;
+  if (!workout) return <p className="text-sm text-steel">Workout not found.</p>;
 
   async function saveSet(setId: string, exerciseId: string) {
     const draft = editing[setId];
@@ -65,7 +65,7 @@ function WorkoutDetail() {
       reps: r != null ? Math.round(r) : set.reps,
     });
     await vault.patchWorkout({ ...workout!, updatedAt: nowIso() });
-    toast("Set rewritten. Analytics recompute on read.");
+    toast("Set updated.");
   }
 
   return (
@@ -73,9 +73,9 @@ function WorkoutDetail() {
       <header className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.32em] text-steel">
-            {workout.status === "active" ? "Live" : "Closed"}
+            {workout.status === "active" ? "In progress" : "Completed"}
           </p>
-          <h1 className="font-display text-4xl tracking-[0.08em]">{workout.name}</h1>
+          <h1 className="font-display text-4xl tracking-tight">{workout.name}</h1>
           <p className="mt-1 text-sm text-steel">
             {formatClock(workout.startedAt)} · {formatDuration(workout.durationSeconds)}
           </p>
@@ -96,8 +96,8 @@ function WorkoutDetail() {
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Stat label="Duration" value={formatDuration(workout.durationSeconds)} />
           <Stat label="Sets" value={String(summary.completed)} />
-          <Stat label="Tonnage" value={`${formatLoad(summary.volume, units)} ${units}`} />
-          <Stat label="Movements" value={String(workout.exercises.length)} />
+          <Stat label="Volume" value={`${formatLoad(summary.volume, units)} ${units}`} />
+          <Stat label="Exercises" value={String(workout.exercises.length)} />
         </div>
       ) : null}
 
@@ -155,13 +155,9 @@ function WorkoutDetail() {
           </ul>
         </Panel>
       ))}
-      <p className="text-[11px] text-steel">
-        Stored canonical kg. Display {units}. Last load shown as{" "}
-        {formatSet(workout.exercises[0]?.sets[0]?.weightKg ?? null, workout.exercises[0]?.sets[0]?.reps ?? null, units)}{" "}
-        {units}.
-      </p>
+      <p className="text-xs text-steel">Weights are stored in kilograms. Showing {units}.</p>
       <Button variant="outline" onClick={() => navigate({ to: "/" })}>
-        Back to command
+        Back to Today
       </Button>
     </div>
   );

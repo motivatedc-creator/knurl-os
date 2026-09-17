@@ -35,17 +35,17 @@ function RoutineEditor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [row?.id]);
 
-  if (row === undefined) return <p className="text-sm text-steel">Reading routine…</p>;
-  if (!row) return <p className="text-sm text-steel">Routine missing.</p>;
+  if (row === undefined) return <p className="text-sm text-steel">Loading template…</p>;
+  if (!row) return <p className="text-sm text-steel">Template not found.</p>;
 
   const byId = new Map(catalog.map((e) => [e.id, e]));
 
   async function save() {
     await vault.saveTemplate(
-      { ...row!, name: name.trim() || "Untitled routine", notes, updatedAt: nowIso(), createdAt: row!.createdAt, id, isArchived: false },
+      { ...row!, name: name.trim() || "Untitled template", notes, updatedAt: nowIso(), createdAt: row!.createdAt, id, isArchived: false },
       lines.map((l, i) => ({ ...l, order: i, templateId: id })),
     );
-    toast("Routine written.");
+    toast("Template saved.");
   }
 
   function move(index: number, dir: -1 | 1) {
@@ -87,7 +87,7 @@ function RoutineEditor() {
         }}
       />
       <header className="flex items-center justify-between gap-3">
-        <p className="text-[11px] uppercase tracking-[0.32em] text-steel">Routine editor</p>
+        <p className="text-xs text-steel">Edit template</p>
         <Button
           variant="ghost"
           onClick={async () => {

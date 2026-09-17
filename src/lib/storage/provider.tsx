@@ -16,7 +16,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     openVault()
       .then(() => setBooting(false))
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Local vault failed to open.");
+        setError(err instanceof Error ? err.message : "Could not open local storage.");
         setBooting(false);
       });
   }, []);
@@ -25,7 +25,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-mill px-6 text-center text-chalk">
         <KnurlMark size={48} />
-        <p className="font-display text-3xl tracking-wide">VAULT FAULT</p>
+        <p className="font-display text-3xl tracking-tight">Can't open storage</p>
         <p className="max-w-sm text-sm text-steel">{error}</p>
       </div>
     );
@@ -39,7 +39,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         <div data-testid="vault-ready" hidden />
       ) : (
         <div className="sr-only" aria-live="polite">
-          Opening local vault
+          Loading…
         </div>
       )}
       {children}

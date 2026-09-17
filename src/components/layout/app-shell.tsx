@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { BookMarked, Hexagon, LineChart, Settings2, Timer } from "lucide-react";
+import { BookMarked, Home, LineChart, MoreHorizontal, Timer } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 import { KnurlMark, KnurlWordmark } from "@/components/brand/mark";
 import { usePrefs } from "@/lib/store/prefs";
@@ -13,17 +13,16 @@ import { Toaster } from "sonner";
 import { brand } from "@/lib/brand/tokens";
 
 const NAV = [
-  { to: "/", label: "Command", icon: Hexagon },
-  { to: "/session", label: "Session", icon: Timer },
-  { to: "/logbook", label: "Log", icon: BookMarked },
-  { to: "/analytics", label: "Charts", icon: LineChart },
-  { to: "/system", label: "System", icon: Settings2 },
+  { to: "/", label: "Today", icon: Home },
+  { to: "/session", label: "Workout", icon: Timer },
+  { to: "/logbook", label: "History", icon: BookMarked },
+  { to: "/analytics", label: "Stats", icon: LineChart },
+  { to: "/system", label: "More", icon: MoreHorizontal },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const icon = usePrefs((s) => s.appIcon);
-  const theme = usePrefs((s) => s.theme);
   const active = useActiveWorkout();
 
   useEffect(() => {
@@ -36,7 +35,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh bg-mill text-chalk">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[5.5rem] flex-col border-r border-hairline bg-graphite md:flex">
-        <Link to="/" className="grid place-items-center py-5" aria-label="Knurl OS">
+        <Link to="/" className="grid place-items-center py-5" aria-label="Knurl">
           <KnurlMark size={36} variant={icon} />
         </Link>
         <nav className="flex flex-1 flex-col gap-1 px-2">
@@ -50,7 +49,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 key={item.to}
                 to={item.to}
                 className={cn(
-                  "relative flex flex-col items-center gap-1 rounded-lg py-3 text-[10px] uppercase tracking-[0.16em] text-steel hover:bg-elevated hover:text-chalk",
+                  "relative flex flex-col items-center gap-1 rounded-lg py-3 text-[11px] font-medium text-steel hover:bg-elevated hover:text-chalk",
                   on && "bg-elevated text-chalk",
                 )}
               >
@@ -74,22 +73,18 @@ export function AppShell({ children }: { children: ReactNode }) {
         {active ? (
           <Link
             to="/session"
-            className="text-[10px] uppercase tracking-[0.2em] text-oxide"
+            className="text-sm font-medium text-oxide"
             data-testid="resume-chip"
           >
-            Live
+            Resume
           </Link>
-        ) : (
-          <span className="text-[10px] uppercase tracking-[0.2em] text-steel">Local</span>
-        )}
+        ) : null}
       </header>
 
       <div className="md:pl-[5.5rem]">
         <div className="hidden items-center justify-between border-b border-hairline px-8 py-4 md:flex">
           <KnurlWordmark />
-          <p className="text-[10px] uppercase tracking-[0.28em] text-steel">
-            {theme === "mill" ? "Mill scale" : "Chalk"} · local vault
-          </p>
+          <p className="text-xs text-steel">Workouts stay on this device</p>
         </div>
         <main className="mx-auto w-full max-w-5xl px-4 pt-5 pb-[calc(5.75rem+env(safe-area-inset-bottom))] md:px-8 md:pb-10">
           {children}
@@ -108,7 +103,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <Link
                   to={item.to}
                   className={cn(
-                    "relative flex min-h-14 flex-col items-center justify-center gap-1 text-[10px] uppercase tracking-[0.14em] text-steel",
+                    "relative flex min-h-14 flex-col items-center justify-center gap-1 text-[11px] font-medium text-steel",
                     on && "text-chalk",
                   )}
                 >

@@ -12,13 +12,13 @@ function EcosystemPage() {
     <div className="flex flex-col gap-8">
       <header className="knurl-field -mx-4 rounded-xl border border-hairline px-5 py-8 md:-mx-0">
         <KnurlMark size={56} />
-        <p className="mt-5 text-[11px] uppercase tracking-[0.32em] text-steel">Institution</p>
-        <h1 className="font-display text-6xl tracking-[0.1em]">KNURL</h1>
-        <p className="mt-2 text-sm text-steel">Iron · Halls · Academy · OS</p>
+        <p className="mt-5 text-xs text-steel">About</p>
+        <h1 className="font-display text-6xl tracking-tight">Knurl</h1>
+        <p className="mt-2 text-sm text-steel">Iron · Halls · Academy · this log</p>
       </header>
 
       <section className="flex flex-col gap-3">
-        <h2 className="font-display text-3xl tracking-[0.12em]">{manifesto.title.toUpperCase()}</h2>
+        <h2 className="font-display text-3xl tracking-tight">{manifesto.title}</h2>
         {manifesto.body.map((p) => (
           <p key={p.slice(0, 24)} className="max-w-prose text-sm leading-relaxed text-chalk/90">
             {p}
@@ -27,7 +27,7 @@ function EcosystemPage() {
       </section>
 
       <Panel>
-        <h2 className="font-display text-3xl tracking-[0.12em]">{iron.title.toUpperCase()}</h2>
+        <h2 className="font-display text-3xl tracking-tight">{iron.title}</h2>
         <p className="mt-3 text-[11px] uppercase tracking-[0.2em] text-oxide">Tolerance</p>
         <p className="mt-1 text-sm leading-relaxed text-steel">{iron.tolerance}</p>
         <p className="mt-4 text-[11px] uppercase tracking-[0.2em] text-oxide">Marks</p>
@@ -37,7 +37,7 @@ function EcosystemPage() {
       </Panel>
 
       <section>
-        <h2 className="font-display text-3xl tracking-[0.12em]">{halls.title.toUpperCase()}</h2>
+        <h2 className="font-display text-3xl tracking-tight">{halls.title}</h2>
         <ul className="mt-3 flex flex-col gap-3">
           {halls.principles.map((p) => (
             <li key={p.slice(0, 20)} className="border-l-2 border-oxide pl-4 text-sm leading-relaxed text-steel">
@@ -48,7 +48,7 @@ function EcosystemPage() {
       </section>
 
       <section>
-        <h2 className="font-display text-3xl tracking-[0.12em]">{academy.title.toUpperCase()}</h2>
+        <h2 className="font-display text-3xl tracking-tight">{academy.title}</h2>
         <ol className="mt-3 flex flex-col gap-3">
           {academy.framework.map((p, i) => (
             <li key={p.slice(0, 20)} className="flex gap-3 text-sm leading-relaxed text-steel">

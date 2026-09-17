@@ -24,7 +24,7 @@ function ExerciseDetail() {
     formula,
   ).get(id);
 
-  if (!exercise) return <p className="text-sm text-steel">Movement missing from catalog.</p>;
+  if (!exercise) return <p className="text-sm text-steel">Exercise not found.</p>;
 
   return (
     <div className="flex flex-col gap-5">
@@ -32,9 +32,9 @@ function ExerciseDetail() {
         <p className="text-[11px] uppercase tracking-[0.32em] text-steel">
           {MUSCLE_LABEL[exercise.primaryMuscleGroup]} · {exercise.equipmentType}
         </p>
-        <h1 className="font-display text-4xl tracking-[0.08em] md:text-5xl">{exercise.name}</h1>
+        <h1 className="font-display text-4xl tracking-tight md:text-5xl">{exercise.name}</h1>
         <Link to="/exercises" className="mt-2 inline-block text-sm text-steel hover:text-chalk">
-          Back to catalog
+          Back to exercises
         </Link>
       </header>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

@@ -27,6 +27,30 @@ src/
 
 Canonical storage is always kilograms (and centimetres for girth). Display units are a preference.
 
+## Deploy on Railway
+
+Knurl OS is local-first: Railway only hosts the app. The vault stays in the visitor's browser. Do not add Postgres or auth.
+
+The repo is already wired for Railway ([motivatedc-creator/knurl-os](https://github.com/motivatedc-creator/knurl-os)).
+
+1. Sign in at [railway.com](https://railway.com).
+2. **New Project → Deploy from GitHub repo**.
+3. Authorize GitHub if asked, then pick **knurl-os**.
+4. Wait for the first deploy to go green.
+5. Open the service → **Settings → Networking → Generate Domain**.
+6. Visit that URL. First load seeds the catalog on that device.
+
+Optional:
+
+- Custom domain: same Networking page → **Custom Domain**.
+- Pull-request previews: enable them on the service if you want a mill-scale check per PR.
+- Variables: none required. Do not set `PORT`. Railway provides it. `HOST=::` is already in `railway.toml`.
+
+If a deploy fails on a fork without `railway.toml`, set:
+
+- **Build command:** `NITRO_PRESET=node-server npm run build`
+- **Start command:** `HOST=:: node .output/server/index.mjs`
+
 ## Local setup
 
 ```bash

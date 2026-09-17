@@ -1,0 +1,40 @@
+# dependencies
+node_modules/
+.node_modules.lock
+
+# build / preview
+dist/
+.output/
+.vercel/
+.nitro/
+.tanstack/
+*.local
+
+# env & secrets
+.env
+.env.*
+!.env.example
+
+# logs & OS
+*.log
+.DS_Store
+Thumbs.db
+
+# test / QA artifacts
+coverage/
+playwright-report/
+test-results/
+screenshots/
+blob-report/
+
+# sandbox / local-only
+.grok/
+artifacts/
+attachments/
+.project_id
+e2e/debug-routine.mjs
+
+
+# sandbox agent contract (not part of the app)
+AGENTS.md
+AGENTS.project.md

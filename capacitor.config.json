@@ -1,0 +1,8 @@
+{
+  "appId": "com.knurl.os",
+  "appName": "Knurl OS",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

@@ -1,0 +1,535 @@
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Dumbbell, Flame, Plus, TimerReset } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { toast } from "sonner";
+import { ExercisePicker } from "@/components/exercise-picker";
+import { PlateStack } from "@/components/plates/stack";
+import { Button } from "@/components/ui/button";
+import { Drawer, Panel } from "@/components/ui/drawer";
+import { Input } from "@/components/ui/input";
+import type { LoadProfile } from "@/lib/domain/plates";
+import { solveLoad } from "@/lib/domain/plates";
+import { generateWarmup } from "@/lib/domain/warmup";
+import type { Exercise, WorkoutSet } from "@/lib/domain/schema";
+import { parseDecimal, toCanonicalKg, toDisplayWeight, weightIncrement } from "@/lib/domain/units";
+import { formatDuration, formatLoad, formatSet } from "@/lib/format";
+import { useActiveWorkout, useEquipment, useExercises, useTick, useVaultQuery } from "@/lib/hooks";
+import { usePrefs } from "@/lib/store/prefs";
+import { emptyDraft, restRemaining, useSessionStore } from "@/lib/store/session";
+import {
+  addExerciseToWorkout,
+  finishWorkout,
+  startBlankWorkout,
+  vault,
+} from "@/lib/storage/repo";
+import { cn, newId, nowIso } from "@/lib/utils";
+
+export const Route = createFileRoute("/_app/session")({
+  component: SessionPage,
+});
+
+function SessionPage() {
+  const workout = useActiveWorkout();
+  const navigate = useNavigate();
+  const [picker, setPicker] = useState(false);
+  const catalog = useExercises();
+  const loading = workout === undefined;
+
+  if (loading) {
+    return <p className="text-sm text-steel">Reading vault…</p>;
+  }
+
+  if (!workout) {
+    return (
+      <div className="flex flex-col gap-5">
+        <header>
+          <p className="text-[11px] uppercase tracking-[0.32em] text-steel">Session</p>
+          <h1 className="font-display text-5xl tracking-[0.08em]">IDLE</h1>
+          <p className="mt-2 max-w-md text-sm text-steel">
+            No live session. Open an empty log or launch a routine from Command.
+          </p>
+        </header>
+        <Button
+          size="lg"
+          onClick={async () => {
+            await startBlankWorkout();
+          }}
+          data-testid="session-start-empty"
+        >
+          Open empty session
+        </Button>
+        <Button size="lg" variant="outline" onClick={() => navigate({ to: "/" })}>
+          Back to command
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <LiveSession
+      workoutId={workout.id}
+      onAdd={() => setPicker(true)}
+      picker={
+        <ExercisePicker
+          open={picker}
+          onOpenChange={setPicker}
+          exercises={catalog}
+          onSelect={async (ex: Exercise) => {
+            await addExerciseToWorkout(workout.id, ex);
+          }}
+        />
+      }
+    />
+  );
+}
+
+function LiveSession({
+  workoutId,
+  onAdd,
+  picker,
+}: {
+  workoutId: string;
+  onAdd: () => void;
+  picker: ReactNode;
+}) {
+  const workout = useVaultQuery(() => vault.getWorkout(workoutId), [workoutId]);
+  const equipment = useEquipment();
+  const units = usePrefs((s) => s.units);
+  const selected = useSessionStore((s) => s.selectedExerciseId);
+  const restStartedAt = useSessionStore((s) => s.restStartedAt);
+  const restDurationSec = useSessionStore((s) => s.restDurationSec);
+  const plateSetId = useSessionStore((s) => s.plateSetId);
+  const drafts = useSessionStore((s) => s.drafts);
+  const tick = useTick(true, 250);
+  const [confirmFinish, setConfirmFinish] = useState(false);
+
+  useEffect(() => {
+    if (!workout) return;
+    if (!selected && workout.exercises[0]) {
+      useSessionStore.getState().selectExercise(workout.exercises[0].id);
+    }
+    const last = lastCompleted(workout.exercises);
+    if (last && !useSessionStore.getState().restStartedAt) {
+      useSessionStore.getState().reconstructRest(last.set.completedAt, last.rest);
+    }
+    for (const ex of workout.exercises) {
+      for (const set of ex.sets) {
+        const prev = ex.previous?.[set.setIndex];
+        const display =
+          set.weightKg != null
+            ? String(roundDisplay(toDisplayWeight(set.weightKg, units)))
+            : prev?.weightKg != null
+              ? String(roundDisplay(toDisplayWeight(prev.weightKg, units)))
+              : "";
+        useSessionStore.getState().seedDraft(set.id, {
+          ...emptyDraft(),
+          weight: display,
+          reps: set.reps != null ? String(set.reps) : prev?.reps != null ? String(prev.reps) : "",
+          rpe: set.rpe != null ? String(set.rpe) : "",
+          duration: set.durationSeconds != null ? String(set.durationSeconds) : "",
+        });
+      }
+    }
+  }, [workout?.id, units, selected, workout]);
+
+  const current = workout?.exercises.find((e) => e.id === selected) ?? workout?.exercises[0];
+  const remaining = restRemaining(restStartedAt, restDurationSec, tick);
+  const elapsed = workout ? Math.floor((tick - Date.parse(workout.startedAt)) / 1000) : 0;
+
+  const loadProfile: LoadProfile | null = equipment
+    ? {
+        barWeightKg: equipment.bars.find((b) => b.id === equipment.activeBarId)?.weightKg ?? 20,
+        collarWeightKg: equipment.collarWeightKg,
+        plates: equipment.plates,
+      }
+    : null;
+
+  const activeSet = current?.sets.find((s) => !s.isCompleted) ?? current?.sets.at(-1);
+  const plateTarget = useMemo(() => {
+    if (!activeSet) return null;
+    const draft = drafts[activeSet.id];
+    const display = parseDecimal(draft?.weight ?? "");
+    if (display == null) return null;
+    return toCanonicalKg(display, units);
+  }, [activeSet, drafts, units]);
+
+  const plateSolution =
+    loadProfile && plateTarget != null ? solveLoad(plateTarget, loadProfile) : null;
+
+  async function complete(set: WorkoutSet) {
+    if (!current) return;
+    const draft = useSessionStore.getState().drafts[set.id] ?? emptyDraft();
+    const weightDisplay = parseDecimal(draft.weight);
+    const reps = parseDecimal(draft.reps);
+    const rpe = parseDecimal(draft.rpe);
+    const duration = parseDecimal(draft.duration);
+    if (current.snapshotTracking === "weight_reps") {
+      if (weightDisplay == null || reps == null) {
+        toast("Enter load and reps before closing the set.");
+        return;
+      }
+    }
+    const stamp = nowIso();
+    await vault.upsertSet({
+      ...set,
+      weightKg: weightDisplay != null ? toCanonicalKg(weightDisplay, units) : set.weightKg,
+      reps: reps != null ? Math.round(reps) : set.reps,
+      rpe: rpe,
+      durationSeconds: duration != null ? Math.round(duration) : set.durationSeconds,
+      isCompleted: true,
+      completedAt: stamp,
+    });
+    await vault.patchWorkout({ ...(workout ?? (await vault.getWorkout(workoutId))!), updatedAt: stamp });
+    useSessionStore.getState().startRest(current.restSeconds, stamp);
+  }
+
+  async function injectWarmup() {
+    if (!current || !loadProfile) return;
+    const working = current.sets.find((s) => s.classification === "working");
+    const draft = working ? useSessionStore.getState().drafts[working.id] : null;
+    const display = parseDecimal(draft?.weight ?? "");
+    const target =
+      display != null
+        ? toCanonicalKg(display, units)
+        : current.previous?.[0]?.weightKg ?? null;
+    if (target == null) {
+      toast("Set the working load first.");
+      return;
+    }
+    const ramp = generateWarmup(target, loadProfile);
+    const existingWorking = current.sets.filter((s) => s.classification !== "warmup");
+    const warmupSets: WorkoutSet[] = ramp.map((step, i) => ({
+      id: newId(),
+      workoutExerciseId: current.id,
+      setIndex: i,
+      classification: "warmup",
+      weightKg: step.weightKg,
+      reps: step.reps,
+      durationSeconds: null,
+      distanceMeters: null,
+      rpe: null,
+      rir: null,
+      completedAt: null,
+      isCompleted: false,
+    }));
+    const shifted = existingWorking.map((s, i) => ({ ...s, setIndex: warmupSets.length + i }));
+    await vault.replaceExerciseSets(current.id, [...warmupSets, ...shifted]);
+    toast(`Ramp injected · ${ramp.length} sets`);
+  }
+
+  async function addWorkingSet() {
+    if (!current) return;
+    const next: WorkoutSet = {
+      id: newId(),
+      workoutExerciseId: current.id,
+      setIndex: current.sets.length,
+      classification: "working",
+      weightKg: current.sets.at(-1)?.weightKg ?? null,
+      reps: current.sets.at(-1)?.reps ?? null,
+      durationSeconds: null,
+      distanceMeters: null,
+      rpe: null,
+      rir: null,
+      completedAt: null,
+      isCompleted: false,
+    };
+    await vault.upsertSet(next);
+  }
+
+  async function onFinish() {
+    await finishWorkout(workoutId);
+    useSessionStore.getState().resetSessionUi();
+    toast("Session closed.");
+    setConfirmFinish(false);
+  }
+
+  if (!workout) return <p className="text-sm text-steel">Reading session…</p>;
+
+  return (
+    <div className="flex flex-col gap-5">
+      {picker}
+      <header className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.32em] text-oxide">Live</p>
+          <h1 className="font-display text-4xl tracking-[0.08em] md:text-5xl">{workout.name}</h1>
+          <p className="mt-1 tabular-nums text-sm text-steel">{formatDuration(elapsed)}</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => setConfirmFinish(true)} data-testid="finish-session">
+          Close
+        </Button>
+      </header>
+
+      {workout.exercises.length === 0 ? (
+        <Panel className="flex flex-col items-start gap-3">
+          <p className="text-sm text-steel">Empty log. Add a movement from the catalog.</p>
+          <Button onClick={onAdd} data-testid="add-exercise">
+            <Plus className="size-4" /> Add movement
+          </Button>
+        </Panel>
+      ) : (
+        <>
+          <div className="-mx-1 flex gap-2 overflow-x-auto pb-1">
+            {workout.exercises.map((ex) => {
+              const done = ex.sets.filter((s) => s.isCompleted).length;
+              const on = ex.id === current?.id;
+              return (
+                <button
+                  key={ex.id}
+                  type="button"
+                  onClick={() => useSessionStore.getState().selectExercise(ex.id)}
+                  className={cn(
+                    "min-w-[9.5rem] rounded-lg border px-3 py-2 text-left",
+                    on ? "border-oxide bg-oxide/10" : "border-hairline bg-graphite",
+                  )}
+                >
+                  <span className="block truncate text-sm font-medium">{ex.snapshotName}</span>
+                  <span className="text-[10px] uppercase tracking-[0.14em] text-steel">
+                    {done}/{ex.sets.length}
+                  </span>
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={onAdd}
+              className="grid min-w-14 place-items-center rounded-lg border border-dashed border-hairline-strong text-steel"
+              aria-label="Add movement"
+            >
+              <Plus className="size-4" />
+            </button>
+          </div>
+
+          {current ? (
+            <section className="flex flex-col gap-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-medium">{current.snapshotName}</h2>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-steel">
+                    Rest {current.restSeconds}s
+                    {current.supersetId ? ` · superset ${current.supersetId}` : ""}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="steel" onClick={injectWarmup} data-testid="inject-warmup">
+                    <Flame className="size-3.5" /> Ramp
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="steel"
+                    onClick={() => activeSet && useSessionStore.getState().openPlates(activeSet.id)}
+                    data-testid="open-plates"
+                  >
+                    <Dumbbell className="size-3.5" /> Plates
+                  </Button>
+                </div>
+              </div>
+
+              {remaining > 0 ? (
+                <div className="flex items-center justify-between rounded-xl border border-oxide/40 bg-oxide/10 px-4 py-3">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-oxide">Rest</p>
+                    <p className="font-display text-4xl tabular-nums tracking-wide" data-testid="rest-timer">
+                      {formatDuration(remaining)}
+                    </p>
+                  </div>
+                  <Button variant="ghost" onClick={() => useSessionStore.getState().skipRest()}>
+                    <TimerReset className="size-4" /> Skip
+                  </Button>
+                </div>
+              ) : null}
+
+              <ul className="flex flex-col gap-2">
+                {current.sets.map((set, i) => {
+                  const draft = drafts[set.id] ?? emptyDraft();
+                  const prev = current.previous?.[i];
+                  return (
+                    <li
+                      key={set.id}
+                      className={cn(
+                        "rounded-xl border bg-graphite p-3",
+                        set.isCompleted ? "border-hairline opacity-80" : "border-hairline-strong",
+                      )}
+                    >
+                      <div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-[0.16em] text-steel">
+                        <span>
+                          {set.classification} · set {i + 1}
+                        </span>
+                        <span>Prev {formatSet(prev?.weightKg ?? null, prev?.reps ?? null, units)}</span>
+                      </div>
+                      <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+                        <Field
+                          label={units}
+                          value={draft.weight}
+                          onChange={(v) => useSessionStore.getState().setDraft(set.id, { weight: v })}
+                          onStep={(dir) => {
+                            const cur = parseDecimal(draft.weight) ?? 0;
+                            const next = Math.max(0, cur + dir * weightIncrement(units));
+                            useSessionStore.getState().setDraft(set.id, { weight: String(roundDisplay(next)) });
+                          }}
+                          testId={`weight-${i}`}
+                          disabled={set.isCompleted}
+                        />
+                        <Field
+                          label={current.snapshotTracking === "duration" ? "sec" : "reps"}
+                          value={current.snapshotTracking === "duration" ? draft.duration : draft.reps}
+                          onChange={(v) =>
+                            useSessionStore.getState().setDraft(set.id, {
+                              ...(current.snapshotTracking === "duration" ? { duration: v } : { reps: v }),
+                            })
+                          }
+                          onStep={(dir) => {
+                            const key = current.snapshotTracking === "duration" ? "duration" : "reps";
+                            const cur = parseDecimal(key === "duration" ? draft.duration : draft.reps) ?? 0;
+                            useSessionStore.getState().setDraft(set.id, {
+                              [key]: String(Math.max(0, cur + dir)),
+                            });
+                          }}
+                          testId={`reps-${i}`}
+                          disabled={set.isCompleted}
+                        />
+                        <Button
+                          variant={set.isCompleted ? "steel" : "oxide"}
+                          size="hit"
+                          disabled={set.isCompleted}
+                          onClick={() => complete(set)}
+                          data-testid={`complete-set-${i}`}
+                        >
+                          {set.isCompleted ? "Done" : "Set"}
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+              <Button variant="outline" onClick={addWorkingSet}>
+                Add set
+              </Button>
+            </section>
+          ) : null}
+        </>
+      )}
+
+      <Drawer
+        open={Boolean(plateSetId)}
+        onOpenChange={(o) => !o && useSessionStore.getState().openPlates(null)}
+        title="Load stack"
+      >
+        {plateSolution ? (
+          <div className="flex flex-col gap-4">
+            <p className="font-display text-5xl tabular-nums tracking-wide">
+              {formatLoad(plateSolution.actualKg, units)}
+              <span className="ml-2 text-xl text-steel">{units}</span>
+            </p>
+            {!plateSolution.exact ? (
+              <p className="text-sm text-oxide" data-testid="plate-delta">
+                Inventory cannot hit the target. Nearest{" "}
+                {formatLoad(plateSolution.actualKg, units)} {units} ({plateSolution.deltaKg.toFixed(1)} kg).
+              </p>
+            ) : (
+              <p className="text-sm text-steel">Exact. Bar {formatLoad(plateSolution.barWeightKg, units)} {units} + collars.</p>
+            )}
+            <PlateStack solution={plateSolution} units={units} />
+            <Button
+              onClick={() => {
+                if (!activeSet) return;
+                const display = roundDisplay(toDisplayWeight(plateSolution.actualKg, units));
+                useSessionStore.getState().setDraft(activeSet.id, { weight: String(display) });
+                useSessionStore.getState().openPlates(null);
+              }}
+            >
+              Apply stack
+            </Button>
+          </div>
+        ) : (
+          <p className="text-sm text-steel">Enter a working load to resolve the stack.</p>
+        )}
+      </Drawer>
+
+      {confirmFinish ? (
+        <div className="fixed inset-0 z-40 grid place-items-end bg-mill/70 p-4 md:place-items-center">
+          <Panel className="w-full max-w-md p-5">
+            <h3 className="font-display text-3xl tracking-[0.1em]">CLOSE SESSION</h3>
+            <p className="mt-2 text-sm text-steel">
+              Marks the session complete and writes duration. Sets already closed stay in the vault.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <Button className="flex-1" variant="oxide" onClick={onFinish} data-testid="confirm-finish">
+                Close session
+              </Button>
+              <Button className="flex-1" variant="outline" onClick={() => setConfirmFinish(false)}>
+                Stay
+              </Button>
+            </div>
+          </Panel>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  onStep,
+  testId,
+  disabled,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  onStep: (dir: 1 | -1) => void;
+  testId: string;
+  disabled?: boolean;
+}) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-[10px] uppercase tracking-[0.16em] text-steel">{label}</span>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          className="grid size-11 place-items-center rounded-md bg-elevated text-lg disabled:opacity-40"
+          onClick={() => onStep(-1)}
+          disabled={disabled}
+        >
+          −
+        </button>
+        <Input
+          className="h-11 text-center text-lg"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          inputMode="decimal"
+          disabled={disabled}
+          data-testid={testId}
+        />
+        <button
+          type="button"
+          className="grid size-11 place-items-center rounded-md bg-elevated text-lg disabled:opacity-40"
+          onClick={() => onStep(1)}
+          disabled={disabled}
+        >
+          +
+        </button>
+      </div>
+    </label>
+  );
+}
+
+function roundDisplay(n: number): number {
+  return Math.round(n * 4) / 4;
+}
+
+function lastCompleted(
+  exercises: { restSeconds: number; sets: WorkoutSet[] }[],
+): { set: WorkoutSet; rest: number } | null {
+  let best: { set: WorkoutSet; rest: number } | null = null;
+  for (const ex of exercises) {
+    for (const set of ex.sets) {
+      if (!set.isCompleted || !set.completedAt) continue;
+      if (!best || set.completedAt > (best.set.completedAt ?? "")) {
+        best = { set, rest: ex.restSeconds };
+      }
+    }
+  }
+  return best;
+}
